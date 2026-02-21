@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="매출집계"/>
+  <meta name="theme-color" content="#f4a94a"/>
+  <title>매출 합산 앱</title>
+  <link rel="manifest" href="./manifest.json"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #0e0e1a;
+      --bg3: #12101e;
+      --border: #1e1e2e;
+      --border2: #2a2840;
+      --accent: #f4a94a;
+      --accent2: #e8761a;
+      --text: #f0ece4;
+      --text2: #c8c4bc;
+      --muted: #6b6880;
+      --muted2: #4a4860;
+      --green: #7aba7a;
+      --green-bg: #0a100a;
+      --green-border: #162016;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Noto Sans KR', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overscroll-behavior: none;
+    }
+
+    #app { min-height: 100vh; padding-bottom: env(safe-area-inset-bottom, 20px); }
+
+    /* ── Header ── */
+    .header {
+      position: sticky; top: 0; z-index: 10;
+      padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px 20px;
+      background: linear-gradient(180deg, #0d0d1a 0%, rgba(10,10,15,0.95) 100%);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .header-title { font-size: 22px; font-weight: 900; color: var(--text); }
+    .header-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-weight: 300; }
+
+    /* ── Main scroll area ── */
+    .main { padding: 20px; max-width: 600px; margin: 0 auto; }
+
+    /* ── Upload Zone ── */
+    .upload-zone {
+      position: relative;
+      border: 2px dashed var(--border2);
+      border-radius: 16px;
+      padding: 36px 20px;
+      text-align: center;
+      background: var(--bg2);
+      transition: all 0.2s;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .upload-zone.drag-over { border-color: var(--accent); background: #12101c; }
+    .upload-zone input {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+      font-size: 0;
+    }
+    .upload-icon { font-size: 44px; margin-bottom: 10px; }
+    .upload-title { font-size: 15px; font-weight: 700; color: var(--text2); margin-bottom: 5px; }
+    .upload-sub { font-size: 12px; color: var(--muted2); }
+
+    /* ── Preview grid ── */
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .preview-item {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      aspect-ratio: 1;
+      background: var(--bg3);
+    }
+    .preview-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .preview-remove {
+      position: absolute; top: 4px; right: 4px;
+      width: 22px; height: 22px;
+      background: rgba(0,0,0,0.75);
+      border: none; border-radius: 50%;
+      color: #fff; font-size: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+
+    /* ── Buttons ── */
+    .analyze-btn {
+      width: 100%; margin-top: 14px;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 14px;
+      font-family: var(--sans);
+      font-size: 15px; font-weight: 700;
+      color: #0a0a0f;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-appearance: none;
+    }
+    .analyze-btn:active { transform: scale(0.98); }
+    .analyze-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .loading-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 12px; }
+    .loading-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      animation: loadBar 1.4s ease-in-out infinite;
+    }
+    @keyframes loadBar {
+      0%   { width: 0%;  margin-left: 0 }
+      50%  { width: 60%; margin-left: 20% }
+      100% { width: 0%;  margin-left: 100% }
+    }
+
+    /* ── Error ── */
+    .error-box {
+      margin-top: 14px; padding: 14px 16px;
+      background: #1a0a0e; border: 1px solid #3a1a1e;
+      border-radius: 10px; font-size: 13px; color: #e06080;
+      line-height: 1.5;
+    }
+
+    /* ── Section divider ── */
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 28px 0 18px;
+    }
+    .divider-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.15em; color: var(--accent);
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Summary card ── */
+    .summary-card {
+      background: linear-gradient(135deg, var(--bg3), var(--bg2));
+      border: 1px solid var(--border2);
+      border-radius: 16px; padding: 20px;
+      margin-bottom: 18px;
+      display: flex; justify-content: space-between;
+      align-items: flex-end; gap: 12px; flex-wrap: wrap;
+    }
+    .summary-label {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--muted); letter-spacing: 0.1em;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+    .summary-total {
+      font-family: var(--mono);
+      font-size: 32px; font-weight: 900;
+      color: var(--accent); letter-spacing: -0.02em;
+    }
+    .summary-meta { margin-top: 4px; font-size: 12px; color: var(--muted2); }
+
+    .export-btn {
+      padding: 12px 16px;
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      border-radius: 10px;
+      font-family: var(--sans); font-size: 13px; font-weight: 700;
+      color: var(--green); cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+      -webkit-appearance: none;
+    }
+    .export-btn:active { transform: scale(0.97); }
+
+    /* ── Month cards ── */
+    .month-list { display: flex; flex-direction: column; gap: 10px; }
+    .month-card {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 14px; padding: 16px;
+    }
+    .month-head {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 10px;
+    }
+    .month-name { font-size: 13px; font-weight: 700; color: var(--accent); }
+    .month-badge {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--muted2); background: var(--bg3);
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .month-amount {
+      font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--text);
+    }
+    .month-amount span { font-size: 13px; color: var(--muted); margin-left: 2px; }
+    .entry-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .entry-row {
+      display: flex; justify-content: space-between;
+      align-items: center; padding: 4px 0; font-size: 12px;
+    }
+    .entry-desc {
+      color: var(--muted); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; max-width: 60%;
+    }
+    .entry-amt { font-family: var(--mono); color: #a0a8c0; font-size: 12px; }
+    .ai-note {
+      margin-top: 10px; padding: 10px;
+      background: #0a0a14; border-radius: 8px;
+      border-left: 2px solid var(--border2);
+      font-size: 11px; color: #4a5080;
+      font-family: var(--mono); line-height: 1.6;
+    }
+
+    /* ── Bottom actions ── */
+    .bottom-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .clear-btn {
+      padding: 10px 18px;
+      background: transparent; border: 1px solid var(--border2);
+      border-radius: 8px; color: var(--muted);
+      font-family: var(--sans); font-size: 13px;
+      cursor: pointer; transition: all 0.2s;
+      -webkit-appearance: none;
+    }
+    .clear-btn:active { background: var(--bg2); }
+
+    /* ── Install banner ── */
+    #install-banner {
+      display: none;
+      position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      left: 12px; right: 12px; z-index: 100;
+      background: linear-gradient(135deg, #1a1600, #261c00);
+      border: 1px solid #3a2c00;
+      border-radius: 14px; padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    #install-banner.show { display: flex; align-items: center; gap: 12px; }
+    .banner-text { flex: 1; font-size: 13px; color: #d4a030; line-height: 1.4; }
+    .banner-text strong { color: var(--accent); font-size: 14px; display: block; margin-bottom: 2px; }
+    .banner-btn {
+      padding: 10px 16px;
+      background: var(--accent); border: none; border-radius: 10px;
+      font-family: var(--sans); font-size: 13px; font-weight: 700;
+      color: #0a0a0f; cursor: pointer; white-space: nowrap;
+      -webkit-appearance: none;
+    }
+    .banner-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; padding: 4px;
+      line-height: 1; -webkit-appearance: none;
+    }
+
+    /* ── PWA tip (fallback) ── */
+    .pwa-tip {
+      margin-top: 28px; padding: 14px 16px;
+      background: var(--green-bg); border: 1px solid var(--green-border);
+      border-radius: 12px; font-size: 12px; color: #4a7a4a; line-height: 1.8;
+    }
+    .pwa-tip strong { color: var(--green); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-badge">매출 분석 도구 · PWA</div>
+    <div class="header-title">📊 사진으로 매출 합산</div>
+    <div class="header-sub">메모·영수증·장부 사진 → AI 자동 분석 → 월별 집계</div>
+  </div>
+
+  <div class="main">
+    <!-- 업로드 -->
+    <div class="upload-zone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*" multiple/>
+      <div class="upload-icon">📸</div>
+      <div class="upload-title">사진을 여기에 올려주세요</div>
+      <div class="upload-sub">탭하여 선택 · 여러 장 동시 가능</div>
+    </div>
+
+    <div class="preview-grid" id="previewGrid"></div>
+
+    <button class="analyze-btn" id="analyzeBtn" style="display:none">
+      📊 분석 시작
+    </button>
+    <div class="loading-bar" id="loadingBar" style="display:none">
+      <div class="loading-fill"></div>
+    </div>
+    <div class="error-box" id="errorBox" style="display:none"></div>
+
+    <!-- 결과 -->
+    <div id="results" style="display:none">
+      <div class="divider">
+        <span class="divider-label">분석 결과</span>
+        <div class="divider-line"></div>
+      </div>
+      <div class="summary-card">
+        <div>
+          <div class="summary-label">전체 합산 매출</div>
+          <div class="summary-total" id="grandTotal">₩ 0</div>
+          <div class="summary-meta" id="summaryMeta"></div>
+        </div>
+        <button class="export-btn" id="exportBtn">📥 엑셀 내보내기</button>
+      </div>
+      <div class="month-list" id="monthList"></div>
+      <div class="bottom-row">
+        <button class="clear-btn" id="clearBtn">🗑 결과 초기화</button>
+      </div>
+    </div>
+
+    <div class="pwa-tip" id="pwaTip">
+      <strong>📱 홈 화면에 앱으로 설치하기</strong><br/>
+      Chrome → 주소창 오른쪽 메뉴(⋮) → <strong>"홈 화면에 추가"</strong><br/>
+      설치 후 앱 아이콘을 탭하면 전체화면 앱으로 실행됩니다
+    </div>
+  </div>
+</div>
+
+<!-- 설치 배너 (beforeinstallprompt 이벤트 감지 시 표시) -->
+<div id="install-banner">
+  <div class="banner-text">
+    <strong>앱으로 설치하기</strong>
+    홈 화면에 추가하면 앱처럼 사용할 수 있어요
+  </div>
+  <button class="banner-btn" id="installBtn">설치</button>
+  <button class="banner-close" id="closeBanner">×</button>
+</div>
+
+<script>
+// ── 상태 ───────────────────────────────────────────────────
+let images = [];      // {id, file, url}
+let monthData = {};   // key: "YYYYMM" → {year,month,total,entries,notes}
+let deferredPrompt = null;
+
+// ── DOM ────────────────────────────────────────────────────
+const dropzone    = document.getElementById('dropzone');
+const fileInput   = document.getElementById('fileInput');
+const previewGrid = document.getElementById('previewGrid');
+const analyzeBtn  = document.getElementById('analyzeBtn');
+const loadingBar  = document.getElementById('loadingBar');
+const errorBox    = document.getElementById('errorBox');
+const results     = document.getElementById('results');
+const grandTotal  = document.getElementById('grandTotal');
+const summaryMeta = document.getElementById('summaryMeta');
+const monthList   = document.getElementById('monthList');
+const exportBtn   = document.getElementById('exportBtn');
+const clearBtn    = document.getElementById('clearBtn');
+const banner      = document.getElementById('install-banner');
+const installBtn  = document.getElementById('installBtn');
+const closeBanner = document.getElementById('closeBanner');
+const pwaTip      = document.getElementById('pwaTip');
+
+// ── 파일 처리 ───────────────────────────────────────────────
+fileInput.addEventListener('change', e => addFiles(e.target.files));
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+
+function addFiles(files) {
+  Array.from(files).filter(f => f.type.startsWith('image/')).forEach(f => {
+    images.push({ id: Math.random().toString(36).slice(2), file: f, url: URL.createObjectURL(f) });
+  });
+  renderPreviews();
+  clearError();
+}
+
+function renderPreviews() {
+  previewGrid.innerHTML = '';
+  images.forEach(img => {
+    const div = document.createElement('div');
+    div.className = 'preview-item';
+    div.innerHTML = `<img src="${img.url}" loading="lazy"/><button class="preview-remove" data-id="${img.id}">×</button>`;
+    previewGrid.appendChild(div);
+  });
+  analyzeBtn.style.display = images.length ? 'block' : 'none';
+  analyzeBtn.textContent = `📊 ${images.length}장 분석 시작`;
+}
+
+previewGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.preview-remove');
+  if (btn) { images = images.filter(i => i.id !== btn.dataset.id); renderPreviews(); }
+});
+
+// ── 분석 ────────────────────────────────────────────────────
+analyzeBtn.addEventListener('click', analyze);
+
+async function analyze() {
+  if (!images.length) return;
+  setLoading(true); clearError();
+
+  try {
+    const contents = [];
+    for (const img of images) {
+      const b64 = await toBase64(img.file);
+      contents.push({ type: 'image', source: { type: 'base64', media_type: img.file.type || 'image/jpeg', data: b64 } });
+    }
+    contents.push({ type: 'text', text: `위 이미지들은 매출 메모/영수증/장부 사진들입니다. 각 이미지에서 날짜(연도, 월)와 매출 금액을 추출해주세요.
+반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{"entries":[{"year":2024,"month":1,"amount":1500000,"description":"설명"}],"notes":"불확실한 항목 메모"}
+- amount는 숫자만(원화 기준, 쉼표없이)
+- 만원 단위면 10000을 곱해서 원 단위로 변환
+- 하나의 이미지에 여러 항목이 있으면 각각 별도 entry로` });
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: contents }]
+      })
+    });
+
+    const data = await res.json();
+    const text = (data.content || []).map(c => c.text || '').join('');
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('AI 응답을 파싱하지 못했습니다. 다시 시도해주세요.');
+
+    const parsed = JSON.parse(match[0]);
+    const entries = parsed.entries || [];
+    const notes   = parsed.notes || '';
+
+    const agg = {};
+    for (const e of entries) {
+      const key = `${e.year || 9999}${String(e.month).padStart(2,'0')}`;
+      if (!agg[key]) agg[key] = { year: e.year, month: e.month, total: 0, entries: [], notes: '' };
+      agg[key].total += Number(e.amount) || 0;
+      agg[key].entries.push({ amount: Number(e.amount) || 0, description: e.description || '' });
+    }
+    if (notes) { const k = Object.keys(agg)[0]; if (k) agg[k].notes = notes; }
+
+    for (const [key, val] of Object.entries(agg)) {
+      if (monthData[key]) {
+        monthData[key].total += val.total;
+        monthData[key].entries.push(...val.entries);
+      } else {
+        monthData[key] = val;
+      }
+    }
+
+    images = [];
+    renderPreviews();
+    renderResults();
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 결과 렌더 ─────────────────────────────────────────────
+function renderResults() {
+  const keys = Object.keys(monthData).sort();
+  if (!keys.length) { results.style.display = 'none'; return; }
+
+  const total = keys.reduce((s, k) => s + monthData[k].total, 0);
+  const count = keys.reduce((s, k) => s + monthData[k].entries.length, 0);
+
+  grandTotal.textContent = '₩ ' + fmt(total);
+  summaryMeta.textContent = `${keys.length}개월 · 총 ${count}건`;
+
+  monthList.innerHTML = '';
+  keys.forEach(key => {
+    const d = monthData[key];
+    const card = document.createElement('div');
+    card.className = 'month-card';
+    const entriesHtml = d.entries.map(e => `
+      <div class="entry-row">
+        <span class="entry-desc">${e.description || '항목'}</span>
+        <span class="entry-amt">${fmt(e.amount)}</span>
+      </div>`).join('');
+    card.innerHTML = `
+      <div class="month-head">
+        <div class="month-name">${d.year}년 ${d.month}월</div>
+        <div class="month-badge">${d.entries.length}건</div>
+      </div>
+      <div class="month-amount">${fmt(d.total)}<span>원</span></div>
+      ${d.entries.length ? `<div class="entry-list">${entriesHtml}</div>` : ''}
+      ${d.notes ? `<div class="ai-note">${d.notes}</div>` : ''}
+    `;
+    monthList.appendChild(card);
+  });
+
+  results.style.display = 'block';
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── 초기화 ────────────────────────────────────────────────
+clearBtn.addEventListener('click', () => {
+  monthData = {};
+  results.style.display = 'none';
+});
+
+// ── 엑셀 내보내기 ─────────────────────────────────────────
+exportBtn.addEventListener('click', () => {
+  const keys = Object.keys(monthData).sort();
+  if (!keys.length) return;
+
+  const wb = XLSX.utils.book_new();
+
+  // 시트1: 월별 요약
+  const s1 = [['연도','월','매출 합계 (원)','건수']];
+  keys.forEach(k => { const d = monthData[k]; s1.push([d.year, d.month, d.total, d.entries.length]); });
+  s1.push([]);
+  s1.push(['전체 합계', '', keys.reduce((s,k)=>s+monthData[k].total,0), keys.reduce((s,k)=>s+monthData[k].entries.length,0)]);
+  const ws1 = XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols'] = [{wch:10},{wch:6},{wch:20},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, ws1, '월별 요약');
+
+  // 시트2: 상세 내역
+  const s2 = [['연도','월','금액 (원)','설명']];
+  keys.forEach(k => { const d = monthData[k]; d.entries.forEach(e => s2.push([d.year, d.month, e.amount, e.description])); });
+  const ws2 = XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols'] = [{wch:10},{wch:6},{wch:20},{wch:45}];
+  XLSX.utils.book_append_sheet(wb, ws2, '상세 내역');
+
+  const now = new Date();
+  const dt = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `매출집계_${dt}.xlsx`);
+});
+
+// ── 유틸 ──────────────────────────────────────────────────
+function fmt(n) { return (n||0).toLocaleString('ko-KR'); }
+function setLoading(on) {
+  analyzeBtn.disabled = on;
+  analyzeBtn.textContent = on ? '⏳ AI가 분석 중...' : `📊 ${images.length}장 분석 시작`;
+  loadingBar.style.display = on ? 'block' : 'none';
+}
+function showError(msg) { errorBox.textContent = '⚠️ ' + msg; errorBox.style.display = 'block'; }
+function clearError() { errorBox.style.display = 'none'; }
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ── PWA 설치 프롬프트 ─────────────────────────────────────
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  banner.classList.add('show');
+  pwaTip.style.display = 'none';
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') banner.classList.remove('show');
+  deferredPrompt = null;
+});
+
+closeBanner.addEventListener('click', () => banner.classList.remove('show'));
+
+window.addEventListener('appinstalled', () => {
+  banner.classList.remove('show');
+  deferredPrompt = null;
+});
+
+// ── Service Worker 등록 ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
