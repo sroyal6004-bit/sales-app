@@ -1,0 +1,25 @@
+{
+  "name": "가족 여행 플래너",
+  "short_name": "가족여행",
+  "description": "가족 여행 일정과 경비를 함께 기록하고 자동 정산하는 앱",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0d12",
+  "theme_color": "#4cc3e8",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
