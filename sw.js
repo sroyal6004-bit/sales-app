@@ -1,8 +1,9 @@
-const CACHE = 'sales-pwa-v1';
+const CACHE = 'golf-notes-v1';
 const ASSETS = [
   './index.html',
   './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', e => {
@@ -21,9 +22,16 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// 오프라인 우선(캐시 우선, 네트워크 폴백) — 앱은 완전히 로컬에서 동작합니다
 self.addEventListener('fetch', e => {
-  if (e.request.url.includes('api.anthropic.com')) return;
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+    caches.match(e.request).then(cached =>
+      cached || fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        return res;
+      }).catch(() => cached)
+    )
   );
 });

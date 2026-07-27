@@ -1,11 +1,11 @@
 {
-  "name": "매출 합산 앱",
-  "short_name": "매출집계",
-  "description": "사진으로 월별 매출을 자동 합산하는 앱",
+  "name": "골프 공부 노트",
+  "short_name": "골프노트",
+  "description": "골프 공부한 내용을 카테고리별로 기록하고 다시 찾아보는 학습 노트 앱",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#f4a94a",
+  "background_color": "#0a0f0b",
+  "theme_color": "#4ade80",
   "orientation": "portrait",
   "icons": [
     {
