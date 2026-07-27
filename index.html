@@ -908,7 +908,14 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferr
 $('installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; $('install-banner').classList.remove('show'); deferredPrompt = null; });
 $('closeBanner').addEventListener('click', () => $('install-banner').classList.remove('show'));
 window.addEventListener('appinstalled', () => { $('install-banner').classList.remove('show'); deferredPrompt = null; });
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) {
+  // 새 버전이 활성화되면 자동으로 한 번 새로고침해서 최신 화면을 보여줌
+  if (navigator.serviceWorker.controller) {
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloaded) return; reloaded = true; location.reload(); });
+  }
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').then(reg => reg.update()).catch(() => {}));
+}
 
 // ── 초기 실행 ───────────────────────────────────────────────
 render();
