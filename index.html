@@ -8,69 +8,39 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="골프노트"/>
   <meta name="theme-color" content="#4ade80"/>
-  <title>골프 공부 노트</title>
+  <title>골프 노트</title>
   <link rel="manifest" href="./manifest.json"/>
   <link rel="apple-touch-icon" href="./icon-192.png"/>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap');
 
     :root {
-      --bg: #0a0f0b;
-      --bg2: #0e150f;
-      --bg3: #101a12;
-      --border: #1a281c;
-      --border2: #263a29;
-      --accent: #4ade80;
-      --accent2: #22a35a;
-      --accent-dim: #16351f;
-      --text: #eef2ec;
-      --text2: #c4ccc2;
-      --muted: #6b7a6d;
-      --muted2: #47543f;
-      --warm: #f4a94a;
-      --red: #e0607a;
-      --mono: 'DM Mono', monospace;
-      --sans: 'Noto Sans KR', sans-serif;
+      --bg: #0a0f0b; --bg2: #0e150f; --bg3: #101a12;
+      --border: #1a281c; --border2: #263a29;
+      --accent: #4ade80; --accent2: #22a35a; --accent-dim: #16351f;
+      --text: #eef2ec; --text2: #c4ccc2; --muted: #6b7a6d; --muted2: #47543f;
+      --warm: #f4a94a; --red: #e0607a; --blue: #6fb3e0;
+      --mono: 'DM Mono', monospace; --sans: 'Noto Sans KR', sans-serif;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      overscroll-behavior: none;
-    }
-
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overscroll-behavior: none; }
     #app { min-height: 100vh; padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 90px); }
 
-    /* ── Header ── */
+    /* Header */
     .header {
       position: sticky; top: 0; z-index: 10;
-      padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px 16px;
+      padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px 14px;
       background: linear-gradient(180deg, #0d150e 0%, rgba(10,15,11,0.95) 100%);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
     }
-    .header-badge {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      color: var(--accent);
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
+    .header-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
     .header-title { font-size: 22px; font-weight: 900; color: var(--text); }
     .header-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-weight: 300; }
-
     .sync-pill {
       position: absolute; top: calc(env(safe-area-inset-top, 0px) + 18px); right: 18px;
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 7px 12px; border-radius: 20px;
-      background: var(--bg3); border: 1px solid var(--border2);
-      font-size: 11.5px; font-weight: 500; color: var(--text2);
-      cursor: pointer; -webkit-appearance: none; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: 20px;
+      background: var(--bg3); border: 1px solid var(--border2); font-size: 11.5px; font-weight: 500;
+      color: var(--text2); cursor: pointer; -webkit-appearance: none; transition: all 0.15s;
     }
     .sync-pill:active { transform: scale(0.96); }
     .sync-pill.on { border-color: var(--accent2); color: var(--accent); background: var(--accent-dim); }
@@ -81,299 +51,147 @@
     .sync-pill.error .sync-dot { background: var(--red); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    /* ── Stats row ── */
-    .stats-row {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 8px; margin-top: 16px;
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; margin-top: 16px; background: var(--bg3); padding: 4px; border-radius: 12px; }
+    .tab {
+      flex: 1; padding: 10px; border-radius: 9px; border: none; background: none;
+      color: var(--muted); font-family: var(--sans); font-size: 13.5px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; -webkit-appearance: none;
     }
-    .stat-card {
-      background: var(--bg3);
-      border: 1px solid var(--border2);
-      border-radius: 12px; padding: 12px 10px;
-      text-align: center;
-    }
+    .tab.active { background: var(--accent-dim); color: var(--accent); }
+
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+    .stat-card { background: var(--bg3); border: 1px solid var(--border2); border-radius: 12px; padding: 12px 10px; text-align: center; }
     .stat-num { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; }
-    .stat-num.warm { color: var(--warm); }
+    .stat-num.warm { color: var(--warm); } .stat-num.blue { color: var(--blue); }
     .stat-label { font-size: 10px; color: var(--muted); margin-top: 5px; letter-spacing: 0.02em; }
 
-    /* ── Main ── */
     .main { padding: 16px 20px; max-width: 620px; margin: 0 auto; }
 
-    /* ── Search + filter ── */
-    .search-box {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--bg2); border: 1px solid var(--border2);
-      border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;
-    }
-    .search-box input {
-      flex: 1; background: none; border: none; outline: none;
-      color: var(--text); font-family: var(--sans); font-size: 14px;
-    }
+    /* Search + filter */
+    .search-box { display: flex; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+    .search-box input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-family: var(--sans); font-size: 14px; }
     .search-box input::placeholder { color: var(--muted2); }
     .search-icon { font-size: 15px; opacity: 0.6; }
-
-    .filter-scroll {
-      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
-      margin-bottom: 18px; scrollbar-width: none;
-    }
+    .filter-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 18px; scrollbar-width: none; }
     .filter-scroll::-webkit-scrollbar { display: none; }
-    .chip {
-      flex-shrink: 0;
-      padding: 8px 14px; border-radius: 20px;
-      background: var(--bg2); border: 1px solid var(--border2);
-      font-size: 12.5px; font-weight: 500; color: var(--text2);
-      cursor: pointer; transition: all 0.15s; white-space: nowrap;
-      -webkit-appearance: none;
-    }
+    .chip { flex-shrink: 0; padding: 8px 14px; border-radius: 20px; background: var(--bg2); border: 1px solid var(--border2); font-size: 12.5px; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.15s; white-space: nowrap; -webkit-appearance: none; }
     .chip:active { transform: scale(0.96); }
-    .chip.active {
-      background: var(--accent-dim); border-color: var(--accent2); color: var(--accent);
-    }
+    .chip.active { background: var(--accent-dim); border-color: var(--accent2); color: var(--accent); }
     .chip .cnt { font-family: var(--mono); font-size: 10px; opacity: 0.7; margin-left: 4px; }
 
-    /* ── Note cards ── */
-    .note-list { display: flex; flex-direction: column; gap: 12px; }
-    .note-card {
-      background: var(--bg2);
-      border: 1px solid var(--border2);
-      border-radius: 14px; padding: 16px;
-      transition: border-color 0.15s;
-    }
-    .note-card:active { border-color: var(--accent2); }
-    .note-top {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 9px;
-    }
-    .note-cat {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 11.5px; font-weight: 700; color: var(--accent);
-      background: var(--accent-dim); padding: 3px 9px; border-radius: 8px;
-    }
-    .note-date {
-      font-family: var(--mono); font-size: 11px; color: var(--muted);
-      margin-left: auto;
-    }
-    .note-menu {
-      background: none; border: none; color: var(--muted);
-      font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1;
-      -webkit-appearance: none;
-    }
+    /* Note cards */
+    .note-list, .round-list { display: flex; flex-direction: column; gap: 12px; }
+    .note-card, .round-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 16px; transition: border-color 0.15s; }
+    .note-card:active, .round-card:active { border-color: var(--accent2); }
+    .note-top, .round-top { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .note-cat { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-dim); padding: 3px 9px; border-radius: 8px; }
+    .note-date, .round-date { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+    .note-date { margin-left: auto; }
+    .note-menu { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; -webkit-appearance: none; margin-left: auto; }
     .note-title { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.35; }
-    .note-body {
-      font-size: 13.5px; color: var(--text2); line-height: 1.7;
-      margin-top: 7px; white-space: pre-wrap; word-break: break-word;
-    }
+    .note-body { font-size: 13.5px; color: var(--text2); line-height: 1.7; margin-top: 7px; white-space: pre-wrap; word-break: break-word; }
     .note-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
-    .tag {
-      font-family: var(--mono); font-size: 10.5px; color: var(--muted);
-      background: var(--bg3); padding: 3px 8px; border-radius: 6px;
-    }
+    .tag { font-family: var(--mono); font-size: 10.5px; color: var(--muted); background: var(--bg3); padding: 3px 8px; border-radius: 6px; }
     .tag::before { content: '#'; opacity: 0.5; }
 
-    /* ── Media (사진·동영상) ── */
+    /* Media */
     .note-media { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
-    .media-tile {
-      width: 84px; height: 84px; border-radius: 10px; overflow: hidden;
-      background: var(--bg3); border: 1px solid var(--border2);
-      position: relative; display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
+    .media-tile { width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: var(--bg3); border: 1px solid var(--border2); position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .media-tile img, .media-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .media-tile.clickable { cursor: pointer; }
-    .media-tile.clickable:active { opacity: 0.8; }
+    .media-tile.clickable { cursor: pointer; } .media-tile.clickable:active { opacity: 0.8; }
     .media-missing { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5; padding: 4px; }
-    .media-rm {
-      position: absolute; top: 3px; right: 3px;
-      width: 20px; height: 20px; border: none; border-radius: 50%;
-      background: rgba(0,0,0,0.72); color: #fff; font-size: 13px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; line-height: 1;
-      -webkit-appearance: none;
-    }
+    .media-rm { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: none; border-radius: 50%; background: rgba(0,0,0,0.72); color: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; -webkit-appearance: none; }
+    .media-spin { font-size: 16px; animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
     .media-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-    .media-add {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 11px 16px; border-radius: 10px;
-      background: var(--bg3); border: 1px dashed var(--border2);
-      color: var(--text2); font-size: 13px; font-weight: 500; cursor: pointer;
-    }
+    .media-add { display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px; border-radius: 10px; background: var(--bg3); border: 1px dashed var(--border2); color: var(--text2); font-size: 13px; font-weight: 500; cursor: pointer; }
     .media-add:active { border-color: var(--accent2); color: var(--accent); }
-
-    .lightbox {
-      position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.93); display: none;
-      align-items: center; justify-content: center; padding: 16px;
-    }
+    .lightbox { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.93); display: none; align-items: center; justify-content: center; padding: 16px; }
     .lightbox.show { display: flex; }
     .lightbox img, .lightbox video { max-width: 100%; max-height: 100%; border-radius: 8px; }
 
-    /* ── Empty state ── */
-    .empty {
-      text-align: center; padding: 60px 20px; color: var(--muted);
-    }
+    /* Round card */
+    .round-course { font-size: 13px; font-weight: 700; color: var(--text2); }
+    .round-score { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--text); }
+    .round-score span { font-size: 13px; color: var(--muted); margin-left: 2px; }
+    .round-score em { font-style: normal; font-size: 15px; margin-left: 8px; font-weight: 500; }
+    .round-score em.over { color: var(--red); } .round-score em.under { color: var(--accent); } .round-score em.even { color: var(--warm); }
+    .round-meta { display: flex; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .round-meta b { color: var(--text2); font-family: var(--mono); }
+    .round-memo { font-size: 12.5px; color: var(--text2); line-height: 1.6; margin-top: 9px; white-space: pre-wrap; }
+
+    /* Graph */
+    .graph-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 16px 12px 10px; margin-bottom: 18px; }
+    .graph-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 4px 8px; letter-spacing: 0.03em; }
+    .graph-wrap svg { width: 100%; height: auto; display: block; }
+    .graph-empty { text-align: center; color: var(--muted2); font-size: 13px; line-height: 1.7; padding: 30px 10px; }
+
+    /* Empty */
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
     .empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.8; }
     .empty-title { font-size: 15px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
     .empty-sub { font-size: 13px; color: var(--muted2); line-height: 1.6; }
 
-    /* ── FAB ── */
-    .fab {
-      position: fixed;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
-      right: 22px; z-index: 50;
-      width: 58px; height: 58px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border: none; color: #06120a; font-size: 28px; font-weight: 300;
-      cursor: pointer; box-shadow: 0 8px 24px rgba(34,163,90,0.4);
-      display: flex; align-items: center; justify-content: center;
-      transition: transform 0.15s; -webkit-appearance: none;
-    }
+    /* FAB */
+    .fab { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); right: 22px; z-index: 50; width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: #06120a; font-size: 28px; font-weight: 300; cursor: pointer; box-shadow: 0 8px 24px rgba(34,163,90,0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.15s; -webkit-appearance: none; }
     .fab:active { transform: scale(0.92); }
 
-    /* ── Modal ── */
-    .modal-backdrop {
-      position: fixed; inset: 0; z-index: 100;
-      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-      display: none; align-items: flex-end; justify-content: center;
-    }
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: flex-end; justify-content: center; }
     .modal-backdrop.show { display: flex; }
-    .modal {
-      width: 100%; max-width: 620px;
-      background: var(--bg2); border: 1px solid var(--border2);
-      border-radius: 20px 20px 0 0;
-      padding: 22px 20px calc(env(safe-area-inset-bottom, 0px) + 22px);
-      max-height: 92vh; overflow-y: auto;
-      animation: slideUp 0.25s ease-out;
-    }
+    .modal { width: 100%; max-width: 620px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 20px 20px 0 0; padding: 22px 20px calc(env(safe-area-inset-bottom, 0px) + 22px); max-height: 92vh; overflow-y: auto; animation: slideUp 0.25s ease-out; }
     @keyframes slideUp { from { transform: translateY(30px); opacity: 0.5; } to { transform: translateY(0); opacity: 1; } }
-    .modal-handle {
-      width: 40px; height: 4px; border-radius: 2px; background: var(--border2);
-      margin: 0 auto 18px;
-    }
+    .modal-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border2); margin: 0 auto 18px; }
     .modal-title { font-size: 17px; font-weight: 900; margin-bottom: 18px; }
-
     .field { margin-bottom: 15px; }
-    .field-label {
-      display: block; font-size: 11px; font-weight: 700; color: var(--muted);
-      letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 7px;
-    }
-    .field input, .field textarea, .field select {
-      width: 100%; background: var(--bg3); border: 1px solid var(--border2);
-      border-radius: 10px; padding: 12px 13px;
-      color: var(--text); font-family: var(--sans); font-size: 14px;
-      outline: none; -webkit-appearance: none;
-    }
-    .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent2); }
-    .field textarea { resize: vertical; min-height: 110px; line-height: 1.6; }
-    .field select { background-image: none; }
-
+    .field-row { display: flex; gap: 10px; } .field-row .field { flex: 1; }
+    .field-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 7px; }
+    .field input, .field textarea, .field select { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 13px; color: var(--text); font-family: var(--sans); font-size: 14px; outline: none; -webkit-appearance: none; }
+    .field input:focus, .field textarea:focus { border-color: var(--accent2); }
+    .field textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     .cat-picker { display: flex; flex-wrap: wrap; gap: 7px; }
-    .cat-opt {
-      padding: 8px 12px; border-radius: 10px;
-      background: var(--bg3); border: 1px solid var(--border2);
-      font-size: 12.5px; color: var(--text2); cursor: pointer;
-      transition: all 0.12s; -webkit-appearance: none;
-    }
+    .cat-opt { padding: 8px 12px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border2); font-size: 12.5px; color: var(--text2); cursor: pointer; transition: all 0.12s; -webkit-appearance: none; }
     .cat-opt.active { background: var(--accent-dim); border-color: var(--accent2); color: var(--accent); font-weight: 700; }
-
     .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-    .btn {
-      flex: 1; padding: 14px; border-radius: 12px; border: none;
-      font-family: var(--sans); font-size: 14.5px; font-weight: 700;
-      cursor: pointer; transition: transform 0.12s; -webkit-appearance: none;
-    }
+    .btn { flex: 1; padding: 14px; border-radius: 12px; border: none; font-family: var(--sans); font-size: 14.5px; font-weight: 700; cursor: pointer; transition: transform 0.12s; -webkit-appearance: none; }
     .btn:active { transform: scale(0.98); }
     .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #06120a; }
     .btn-ghost { background: transparent; border: 1px solid var(--border2); color: var(--muted); flex: 0 0 auto; padding: 14px 20px; }
     .btn-danger { background: transparent; border: 1px solid #5a2a34; color: var(--red); }
 
-    /* ── Sync modal specifics ── */
+    /* Sync modal */
     .sync-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 18px; }
-    .code-box {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--bg3); border: 1px solid var(--border2);
-      border-radius: 12px; padding: 6px 6px 6px 14px; margin-bottom: 8px;
-    }
-    .code-box input {
-      flex: 1; background: none; border: none; outline: none;
-      color: var(--accent); font-family: var(--mono); font-size: 16px; letter-spacing: 0.04em;
-    }
-    .copy-btn {
-      padding: 9px 13px; border-radius: 9px; border: none;
-      background: var(--accent-dim); color: var(--accent);
-      font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer;
-      white-space: nowrap; -webkit-appearance: none;
-    }
-    .hint {
-      font-size: 12px; color: var(--muted); line-height: 1.7;
-      background: var(--bg3); border-radius: 10px; padding: 12px 14px; margin: 14px 0 4px;
-      border-left: 2px solid var(--border2);
-    }
+    .code-box { display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 12px; padding: 6px 6px 6px 14px; margin-bottom: 8px; }
+    .code-box input { flex: 1; background: none; border: none; outline: none; color: var(--accent); font-family: var(--mono); font-size: 16px; letter-spacing: 0.04em; }
+    .copy-btn { padding: 9px 13px; border-radius: 9px; border: none; background: var(--accent-dim); color: var(--accent); font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; -webkit-appearance: none; }
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.7; background: var(--bg3); border-radius: 10px; padding: 12px 14px; margin: 14px 0 4px; border-left: 2px solid var(--border2); }
     .hint b { color: var(--text2); }
     .status-line { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
     .status-line b { color: var(--accent); }
 
-    /* ── Action sheet ── */
-    .sheet-backdrop {
-      position: fixed; inset: 0; z-index: 110;
-      background: rgba(0,0,0,0.55); display: none;
-      align-items: flex-end; justify-content: center;
-    }
+    /* Sheet */
+    .sheet-backdrop { position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; }
     .sheet-backdrop.show { display: flex; }
-    .sheet {
-      width: 100%; max-width: 620px; padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
-      animation: slideUp 0.2s ease-out;
-    }
+    .sheet { width: 100%; max-width: 620px; padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); animation: slideUp 0.2s ease-out; }
     .sheet-group { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; margin-bottom: 8px; }
-    .sheet-item {
-      width: 100%; padding: 16px; background: none; border: none;
-      color: var(--text); font-family: var(--sans); font-size: 15px; text-align: center;
-      cursor: pointer; border-bottom: 1px solid var(--border);
-      -webkit-appearance: none;
-    }
+    .sheet-item { width: 100%; padding: 16px; background: none; border: none; color: var(--text); font-family: var(--sans); font-size: 15px; text-align: center; cursor: pointer; border-bottom: 1px solid var(--border); -webkit-appearance: none; }
     .sheet-item:last-child { border-bottom: none; }
-    .sheet-item.danger { color: var(--red); }
-    .sheet-item.cancel { color: var(--muted); font-weight: 700; }
+    .sheet-item.danger { color: var(--red); } .sheet-item.cancel { color: var(--muted); font-weight: 700; }
 
-    /* ── Backup bar ── */
-    .backup-bar {
-      display: flex; gap: 10px; margin-top: 26px; padding-top: 20px;
-      border-top: 1px solid var(--border); flex-wrap: wrap;
-    }
-    .backup-btn {
-      flex: 1; min-width: 130px; padding: 11px; border-radius: 10px;
-      background: var(--bg2); border: 1px solid var(--border2);
-      color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 500;
-      cursor: pointer; transition: all 0.15s; -webkit-appearance: none;
-    }
+    /* Backup */
+    .backup-bar { display: flex; gap: 10px; margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .backup-btn { flex: 1; min-width: 130px; padding: 11px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border2); color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 500; cursor: pointer; transition: all 0.15s; -webkit-appearance: none; }
     .backup-btn:active { background: var(--bg3); }
 
-    .toast {
-      position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-      left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--bg3); border: 1px solid var(--accent2);
-      color: var(--accent); padding: 11px 20px; border-radius: 24px;
-      font-size: 13px; font-weight: 500; z-index: 200;
-      opacity: 0; transition: all 0.25s; pointer-events: none;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5); max-width: 90%; text-align: center;
-    }
+    .toast { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--bg3); border: 1px solid var(--accent2); color: var(--accent); padding: 11px 20px; border-radius: 24px; font-size: 13px; font-weight: 500; z-index: 200; opacity: 0; transition: all 0.25s; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ── Install banner ── */
-    #install-banner {
-      display: none;
-      position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-      left: 12px; right: 12px; z-index: 90;
-      background: linear-gradient(135deg, #10251a, #14311f);
-      border: 1px solid #1f4a30;
-      border-radius: 14px; padding: 14px 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    }
+    #install-banner { display: none; position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); left: 12px; right: 12px; z-index: 90; background: linear-gradient(135deg, #10251a, #14311f); border: 1px solid #1f4a30; border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
     #install-banner.show { display: flex; align-items: center; gap: 12px; }
     .banner-text { flex: 1; font-size: 13px; color: #9fe0b6; line-height: 1.4; }
     .banner-text strong { color: var(--accent); font-size: 14px; display: block; margin-bottom: 2px; }
-    .banner-btn {
-      padding: 10px 16px; background: var(--accent); border: none; border-radius: 10px;
-      font-family: var(--sans); font-size: 13px; font-weight: 700; color: #06120a;
-      cursor: pointer; white-space: nowrap; -webkit-appearance: none;
-    }
+    .banner-btn { padding: 10px 16px; background: var(--accent); border: none; border-radius: 10px; font-family: var(--sans); font-size: 13px; font-weight: 700; color: #06120a; cursor: pointer; white-space: nowrap; -webkit-appearance: none; }
     .banner-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; line-height: 1; }
   </style>
 </head>
@@ -381,89 +199,84 @@
 <div id="app">
   <div class="header">
     <button class="sync-pill" id="syncBtn"><span class="sync-dot"></span><span id="syncPillText">동기화</span></button>
-    <div class="header-badge">Golf Study Journal · PWA</div>
-    <div class="header-title">⛳ 골프 공부 노트</div>
-    <div class="header-sub">배운 것을 기록하고, 다시 꺼내보며 실력을 쌓아요</div>
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-num" id="statTotal">0</div>
-        <div class="stat-label">전체 노트</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statMonth">0</div>
-        <div class="stat-label">이번 달</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num warm" id="statStreak">0</div>
-        <div class="stat-label">연속 기록일</div>
-      </div>
+    <div class="header-badge">Golf Journal · PWA</div>
+    <div class="header-title">⛳ 골프 노트</div>
+    <div class="header-sub">배운 것과 라운드 스코어를 한곳에</div>
+    <div class="tabs">
+      <button class="tab active" data-view="notes" id="tabNotes">📝 학습 노트</button>
+      <button class="tab" data-view="rounds" id="tabRounds">📊 스코어</button>
     </div>
+    <div class="stats-row" id="statsRow"></div>
   </div>
 
   <div class="main">
-    <div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="제목·내용·태그 검색"/>
+    <!-- 학습 노트 뷰 -->
+    <div id="viewNotes">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="제목·내용·태그 검색"/>
+      </div>
+      <div class="filter-scroll" id="filterScroll"></div>
+      <div class="note-list" id="noteList"></div>
+      <div class="backup-bar">
+        <button class="backup-btn" id="syncBtn2">☁️ 기기 간 동기화 설정</button>
+        <button class="backup-btn" id="exportBtn">📤 백업 내보내기</button>
+        <button class="backup-btn" id="importBtn">📥 백업 가져오기</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none"/>
+      </div>
     </div>
 
-    <div class="filter-scroll" id="filterScroll"></div>
-
-    <div class="note-list" id="noteList"></div>
-
-    <div class="backup-bar">
-      <button class="backup-btn" id="syncBtn2">☁️ 기기 간 동기화 설정</button>
-      <button class="backup-btn" id="exportBtn">📤 백업 내보내기</button>
-      <button class="backup-btn" id="importBtn">📥 백업 가져오기</button>
-      <input type="file" id="importFile" accept="application/json,.json" style="display:none"/>
+    <!-- 스코어 뷰 -->
+    <div id="viewRounds" style="display:none">
+      <div class="graph-wrap">
+        <div class="graph-title">📈 스코어 추이 (낮을수록 좋아요)</div>
+        <div id="graph"></div>
+      </div>
+      <div class="round-list" id="roundList"></div>
     </div>
   </div>
 </div>
 
-<button class="fab" id="fab" aria-label="노트 추가">+</button>
+<button class="fab" id="fab" aria-label="추가">+</button>
 
-<!-- 노트 작성/편집 모달 -->
+<!-- 노트 모달 -->
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" id="modalTitle">새 노트</div>
-
-    <div class="field">
-      <label class="field-label">카테고리</label>
-      <div class="cat-picker" id="catPicker"></div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">날짜</label>
-      <input type="date" id="fDate"/>
-    </div>
-
-    <div class="field">
-      <label class="field-label">제목</label>
-      <input type="text" id="fTitle" placeholder="예) 백스윙 탑에서 손목 코킹 유지"/>
-    </div>
-
-    <div class="field">
-      <label class="field-label">배운 내용 · 메모</label>
-      <textarea id="fBody" placeholder="레슨 내용, 유튜브에서 배운 팁, 라운드 중 느낀 점 등 자유롭게 기록하세요."></textarea>
-    </div>
-
-    <div class="field">
-      <label class="field-label">태그 (쉼표로 구분)</label>
-      <input type="text" id="fTags" placeholder="예) 드라이버, 슬라이스교정, 김프로레슨"/>
-    </div>
-
+    <div class="field"><label class="field-label">카테고리</label><div class="cat-picker" id="catPicker"></div></div>
+    <div class="field"><label class="field-label">날짜</label><input type="date" id="fDate"/></div>
+    <div class="field"><label class="field-label">제목</label><input type="text" id="fTitle" placeholder="예) 백스윙 탑에서 손목 코킹 유지"/></div>
+    <div class="field"><label class="field-label">배운 내용 · 메모</label><textarea id="fBody" placeholder="레슨 내용, 유튜브에서 배운 팁, 라운드 중 느낀 점 등"></textarea></div>
+    <div class="field"><label class="field-label">태그 (쉼표로 구분)</label><input type="text" id="fTags" placeholder="예) 드라이버, 슬라이스교정"/></div>
     <div class="field">
       <label class="field-label">사진 · 동영상</label>
       <div class="media-preview" id="mediaPreview"></div>
-      <label class="media-add">
-        <input type="file" id="mediaInput" accept="image/*,video/*" multiple style="display:none"/>
-        📎 사진/동영상 추가
-      </label>
+      <label class="media-add"><input type="file" id="mediaInput" accept="image/*,video/*" multiple style="display:none"/>📎 사진/동영상 추가</label>
     </div>
-
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cancelBtn">취소</button>
       <button class="btn btn-primary" id="saveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 라운드 모달 -->
+<div class="modal-backdrop" id="roundBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="roundModalTitle">새 라운드</div>
+    <div class="field"><label class="field-label">날짜</label><input type="date" id="rDate"/></div>
+    <div class="field"><label class="field-label">골프장 이름 (선택)</label><input type="text" id="rCourse" placeholder="예) 남서울 컨트리클럽"/></div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">총 타수</label><input type="number" id="rScore" inputmode="numeric" placeholder="예) 92"/></div>
+      <div class="field"><label class="field-label">파 (기본 72)</label><input type="number" id="rPar" inputmode="numeric" placeholder="72"/></div>
+      <div class="field"><label class="field-label">퍼팅 수 (선택)</label><input type="number" id="rPutts" inputmode="numeric" placeholder="예) 34"/></div>
+    </div>
+    <div class="field"><label class="field-label">메모 (선택)</label><textarea id="rMemo" placeholder="날씨, 컨디션, 잘된 점/아쉬운 점 등"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="rCancelBtn">취소</button>
+      <button class="btn btn-primary" id="rSaveBtn">저장</button>
     </div>
   </div>
 </div>
@@ -477,36 +290,28 @@
   </div>
 </div>
 
-<!-- 노트 액션 시트 -->
+<!-- 액션 시트 -->
 <div class="sheet-backdrop" id="sheetBackdrop">
   <div class="sheet">
     <div class="sheet-group">
       <button class="sheet-item" id="sheetEdit">✏️ 수정</button>
       <button class="sheet-item danger" id="sheetDelete">🗑 삭제</button>
     </div>
-    <div class="sheet-group">
-      <button class="sheet-item cancel" id="sheetCancel">닫기</button>
-    </div>
+    <div class="sheet-group"><button class="sheet-item cancel" id="sheetCancel">닫기</button></div>
   </div>
 </div>
 
-<!-- 설치 배너 -->
 <div id="install-banner">
-  <div class="banner-text">
-    <strong>홈 화면에 앱으로 설치</strong>
-    앱처럼 전체화면으로, 오프라인에서도 사용할 수 있어요
-  </div>
+  <div class="banner-text"><strong>홈 화면에 앱으로 설치</strong>앱처럼 전체화면으로, 오프라인에서도 사용할 수 있어요</div>
   <button class="banner-btn" id="installBtn">설치</button>
   <button class="banner-close" id="closeBanner">×</button>
 </div>
 
 <div class="toast" id="toast"></div>
-
-<!-- 이미지 확대 보기 -->
 <div class="lightbox" id="lightbox"></div>
 
 <script>
-// ── Firebase 설정 (공개돼도 안전한 값) ──────────────────────
+// ── Firebase 설정 ───────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyAv5S3y_2_jU9dAhJMCDUGTz28XGqIZVR0",
   authDomain: "golf-notes.firebaseapp.com",
@@ -517,59 +322,62 @@ const firebaseConfig = {
 };
 const FB_VER = '10.12.5';
 
-// ── 카테고리 정의 ───────────────────────────────────────────
 const CATS = [
-  { id: 'driver',  label: '드라이버',    emoji: '🏌️' },
-  { id: 'iron',    label: '아이언',      emoji: '⛳' },
-  { id: 'short',   label: '웨지·숏게임', emoji: '🎯' },
-  { id: 'putt',    label: '퍼팅',        emoji: '🕳️' },
-  { id: 'swing',   label: '스윙·자세',   emoji: '🔄' },
-  { id: 'mental',  label: '멘탈·루틴',   emoji: '🧠' },
-  { id: 'course',  label: '코스공략',    emoji: '🗺️' },
-  { id: 'rule',    label: '규칙·에티켓', emoji: '📖' },
-  { id: 'fit',     label: '체력·장비',   emoji: '💪' },
-  { id: 'etc',     label: '기타',        emoji: '📝' },
+  { id: 'driver', label: '드라이버', emoji: '🏌️' },
+  { id: 'iron', label: '아이언', emoji: '⛳' },
+  { id: 'short', label: '웨지·숏게임', emoji: '🎯' },
+  { id: 'putt', label: '퍼팅', emoji: '🕳️' },
+  { id: 'swing', label: '스윙·자세', emoji: '🔄' },
+  { id: 'mental', label: '멘탈·루틴', emoji: '🧠' },
+  { id: 'course', label: '코스공략', emoji: '🗺️' },
+  { id: 'rule', label: '규칙·에티켓', emoji: '📖' },
+  { id: 'fit', label: '체력·장비', emoji: '💪' },
+  { id: 'etc', label: '기타', emoji: '📝' },
 ];
 const catById = id => CATS.find(c => c.id === id) || CATS[CATS.length-1];
 
-const STORE_KEY = 'golf-notes-v1';
-const CODE_KEY  = 'golf-sync-code';
+const NOTE_KEY = 'golf-notes-v1';
+const ROUND_KEY = 'golf-rounds-v1';
+const CODE_KEY = 'golf-sync-code';
+const UP_KEY = 'golf-uploaded';
 
 // ── 상태 ────────────────────────────────────────────────────
-let notes = load();          // 삭제 표식(tombstone) 포함 전체 배열
+let notes = loadArr(NOTE_KEY);
+let rounds = loadArr(ROUND_KEY);
+let activeView = 'notes';
 let activeFilter = 'all';
 let searchTerm = '';
 let editingId = null;
 let selectedCat = 'driver';
-let sheetTargetId = null;
-let modalMedia = [];   // 모달에서 편집 중인 첨부 목록 {id,type,mime,name,isNew,blob,removed}
+let sheetTarget = null;    // { type:'note'|'round', id }
+let modalMedia = [];
+let roundEditingId = null;
 
 let syncCode = localStorage.getItem(CODE_KEY) || null;
-let syncStatus = 'off';      // off | connecting | on | error
-let fb = null;               // { app, fs, db, ref, unsub }
+let syncStatus = 'off';
+let fb = null;
+let uploaded = new Set(loadArr(UP_KEY));
 
-// ── DOM ─────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const noteList = $('noteList');
-const filterScroll = $('filterScroll');
-const searchInput = $('searchInput');
-const modalBackdrop = $('modalBackdrop');
-const catPicker = $('catPicker');
-const sheetBackdrop = $('sheetBackdrop');
-const syncBackdrop = $('syncBackdrop');
 
-// ── 저장/불러오기 ───────────────────────────────────────────
-function load() {
+// ── 로드/저장 ───────────────────────────────────────────────
+function loadArr(key) {
   try {
-    const arr = JSON.parse(localStorage.getItem(STORE_KEY)) || [];
-    arr.forEach(n => { if (!n.updated) n.updated = n.created || Date.now(); });
+    const arr = JSON.parse(localStorage.getItem(key)) || [];
+    if (key === NOTE_KEY || key === ROUND_KEY) arr.forEach(n => { if (!n.updated) n.updated = n.created || Date.now(); });
     return arr;
   } catch { return []; }
 }
-function persist() { localStorage.setItem(STORE_KEY, JSON.stringify(notes)); }
+function persist() {
+  localStorage.setItem(NOTE_KEY, JSON.stringify(notes));
+  localStorage.setItem(ROUND_KEY, JSON.stringify(rounds));
+}
+function markUploaded(id) { uploaded.add(id); localStorage.setItem(UP_KEY, JSON.stringify([...uploaded])); }
 function activeNotes() { return notes.filter(n => !n.deleted); }
+function activeRounds() { return rounds.filter(r => !r.deleted); }
+function commit() { persist(); render(); pushToCloud(); }
 
-// ── 미디어 저장소 (IndexedDB) — 사진·동영상 원본은 이 기기에 보관 ──
+// ── 미디어 로컬 저장소 (IndexedDB) ──────────────────────────
 const MEDIA_DB = 'golf-media', MEDIA_STORE = 'files';
 let _mediaDbPromise = null;
 function mediaDB() {
@@ -586,51 +394,63 @@ function mediaDB() {
 }
 async function mediaPut(rec) {
   const db = await mediaDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(MEDIA_STORE, 'readwrite');
-    tx.objectStore(MEDIA_STORE).put(rec);
-    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-  });
+  return new Promise((res, rej) => { const tx = db.transaction(MEDIA_STORE, 'readwrite'); tx.objectStore(MEDIA_STORE).put(rec); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
 }
 async function mediaGet(id) {
   const db = await mediaDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(MEDIA_STORE, 'readonly');
-    const r = tx.objectStore(MEDIA_STORE).get(id);
-    r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
-  });
+  return new Promise((res, rej) => { const tx = db.transaction(MEDIA_STORE, 'readonly'); const r = tx.objectStore(MEDIA_STORE).get(id); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); });
 }
-async function mediaDelete(id) {
-  try {
-    const db = await mediaDB();
-    await new Promise(res => {
-      const tx = db.transaction(MEDIA_STORE, 'readwrite');
-      tx.objectStore(MEDIA_STORE).delete(id);
-      tx.oncomplete = res; tx.onerror = res;
-    });
-  } catch { /* ignore */ }
+async function mediaDeleteLocal(id) {
+  try { const db = await mediaDB(); await new Promise(res => { const tx = db.transaction(MEDIA_STORE, 'readwrite'); tx.objectStore(MEDIA_STORE).delete(id); tx.oncomplete = res; tx.onerror = res; }); } catch {}
+}
+// 로컬 + 클라우드 완전 삭제
+async function deleteMediaEverywhere(id) {
+  await mediaDeleteLocal(id);
+  uploaded.delete(id); localStorage.setItem(UP_KEY, JSON.stringify([...uploaded]));
+  if (fb && fb.storage && syncCode) { try { await fb.st.deleteObject(fb.st.ref(fb.storage, `spaces/${syncCode}/${id}`)); } catch {} }
 }
 
-// 로컬 저장 + 화면 갱신 + 클라우드 반영
-function commit() { persist(); render(); pushToCloud(); }
+// 미디어 표시용 src 얻기: 로컬 우선 → 없으면 클라우드
+async function mediaSrc(m) {
+  try { const rec = await mediaGet(m.id); if (rec && rec.blob) return URL.createObjectURL(rec.blob); } catch {}
+  if (fb && fb.storage && syncCode) {
+    try {
+      const url = await fb.st.getDownloadURL(fb.st.ref(fb.storage, `spaces/${syncCode}/${m.id}`));
+      // 백그라운드로 로컬 캐시 (실패해도 무시)
+      (async () => { try { const resp = await fetch(url); if (resp.ok) { const bl = await resp.blob(); await mediaPut({ id: m.id, type: m.type, mime: m.mime || bl.type, name: m.name, blob: bl }); markUploaded(m.id); } } catch {} })();
+      return url;
+    } catch {}
+  }
+  return null;
+}
 
-// ── 렌더링 ──────────────────────────────────────────────────
-function render() { renderStats(); renderFilters(); renderNotes(); }
+// ══════════════════════════════════════════════════════════
+//  렌더링
+// ══════════════════════════════════════════════════════════
+function render() {
+  if (activeView === 'notes') {
+    $('viewNotes').style.display = ''; $('viewRounds').style.display = 'none';
+    renderNoteStats(); renderFilters(); renderNotes();
+  } else {
+    $('viewNotes').style.display = 'none'; $('viewRounds').style.display = '';
+    renderRoundStats(); renderGraph(); renderRounds();
+  }
+}
 
-function renderStats() {
+function renderNoteStats() {
   const live = activeNotes();
-  $('statTotal').textContent = live.length;
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  $('statMonth').textContent = live.filter(n => (n.date||'').startsWith(ym)).length;
-  $('statStreak').textContent = calcStreak(live);
+  const month = live.filter(n => (n.date||'').startsWith(ym)).length;
+  $('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${live.length}</div><div class="stat-label">전체 노트</div></div>
+    <div class="stat-card"><div class="stat-num">${month}</div><div class="stat-label">이번 달</div></div>
+    <div class="stat-card"><div class="stat-num warm">${calcStreak(live)}</div><div class="stat-label">연속 기록일</div></div>`;
 }
-
 function calcStreak(live) {
   if (!live.length) return 0;
   const days = new Set(live.map(n => n.date).filter(Boolean));
-  let streak = 0;
-  let d = new Date();
+  let streak = 0, d = new Date();
   const key = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
   if (!days.has(key(d))) d.setDate(d.getDate() - 1);
   while (days.has(key(d))) { streak++; d.setDate(d.getDate() - 1); }
@@ -638,26 +458,19 @@ function calcStreak(live) {
 }
 
 function renderFilters() {
-  const live = activeNotes();
-  const counts = {};
+  const live = activeNotes(), counts = {};
   live.forEach(n => counts[n.cat] = (counts[n.cat]||0) + 1);
   const items = [{ id: 'all', label: '전체', emoji: '📋', cnt: live.length }]
     .concat(CATS.filter(c => counts[c.id]).map(c => ({ ...c, cnt: counts[c.id] })));
-  filterScroll.innerHTML = items.map(it => `
-    <button class="chip ${activeFilter===it.id?'active':''}" data-filter="${it.id}">
-      ${it.emoji} ${it.label}<span class="cnt">${it.cnt}</span>
-    </button>`).join('');
+  $('filterScroll').innerHTML = items.map(it => `
+    <button class="chip ${activeFilter===it.id?'active':''}" data-filter="${it.id}">${it.emoji} ${it.label}<span class="cnt">${it.cnt}</span></button>`).join('');
 }
 
 function filteredNotes() {
   const term = searchTerm.trim().toLowerCase();
   return activeNotes()
     .filter(n => activeFilter === 'all' || n.cat === activeFilter)
-    .filter(n => {
-      if (!term) return true;
-      const hay = `${n.title} ${n.body} ${(n.tags||[]).join(' ')}`.toLowerCase();
-      return hay.includes(term);
-    })
+    .filter(n => !term || `${n.title} ${n.body} ${(n.tags||[]).join(' ')}`.toLowerCase().includes(term))
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.created - a.created);
 }
 
@@ -665,122 +478,160 @@ function renderNotes() {
   const list = filteredNotes();
   if (!list.length) {
     const first = activeNotes().length === 0;
-    noteList.innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">${first ? '⛳' : '🔍'}</div>
-        <div class="empty-title">${first ? '첫 골프 노트를 남겨보세요' : '검색 결과가 없어요'}</div>
-        <div class="empty-sub">${first
-          ? '오른쪽 아래 <b>+</b> 버튼을 눌러<br/>오늘 배운 골프 지식을 기록해보세요.'
-          : '다른 키워드나 카테고리로 찾아보세요.'}</div>
-      </div>`;
+    $('noteList').innerHTML = `<div class="empty"><div class="empty-icon">${first?'⛳':'🔍'}</div><div class="empty-title">${first?'첫 골프 노트를 남겨보세요':'검색 결과가 없어요'}</div><div class="empty-sub">${first?'오른쪽 아래 <b>+</b> 버튼을 눌러<br/>오늘 배운 골프 지식을 기록해보세요.':'다른 키워드나 카테고리로 찾아보세요.'}</div></div>`;
     return;
   }
-  noteList.innerHTML = list.map(n => {
+  $('noteList').innerHTML = list.map(n => {
     const c = catById(n.cat);
     const tags = (n.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    return `
-    <div class="note-card">
-      <div class="note-top">
-        <span class="note-cat">${c.emoji} ${c.label}</span>
-        <span class="note-date">${fmtDate(n.date)}</span>
-        <button class="note-menu" data-menu="${n.id}">⋯</button>
-      </div>
+    return `<div class="note-card">
+      <div class="note-top"><span class="note-cat">${c.emoji} ${c.label}</span><span class="note-date">${fmtDate(n.date)}</span><button class="note-menu" data-note="${n.id}">⋯</button></div>
       <div class="note-title">${esc(n.title) || '(제목 없음)'}</div>
       ${n.body ? `<div class="note-body">${esc(n.body)}</div>` : ''}
-      ${(n.media && n.media.length) ? `<div class="note-media" data-note="${n.id}"></div>` : ''}
+      ${(n.media && n.media.length) ? `<div class="note-media" data-media="${n.id}"></div>` : ''}
       ${tags ? `<div class="note-tags">${tags}</div>` : ''}
     </div>`;
   }).join('');
   hydrateCardMedia();
 }
 
-// 카드의 미디어 썸네일을 IndexedDB에서 불러와 채운다
 async function hydrateCardMedia() {
-  const wraps = document.querySelectorAll('.note-media');
-  for (const wrap of wraps) {
-    const n = notes.find(x => x.id === wrap.dataset.note);
+  for (const wrap of document.querySelectorAll('.note-media')) {
+    const n = notes.find(x => x.id === wrap.dataset.media);
     if (!n || !n.media) continue;
     wrap.innerHTML = '';
     for (const m of n.media) {
       const tile = document.createElement('div');
-      tile.className = 'media-tile';
+      tile.className = 'media-tile'; tile.innerHTML = '<span class="media-spin">⏳</span>';
       wrap.appendChild(tile);
-      let rec = null;
-      try { rec = await mediaGet(m.id); } catch { rec = null; }
-      if (!rec || !rec.blob) {
-        tile.innerHTML = `<span class="media-missing">${m.type === 'video' ? '🎬' : '🖼️'}<br/>다른 기기</span>`;
-        continue;
-      }
-      const url = URL.createObjectURL(rec.blob);
-      if (m.type === 'video') {
-        tile.innerHTML = `<video src="${url}" controls preload="metadata"></video>`;
-      } else {
-        tile.innerHTML = `<img src="${url}"/>`;
-        tile.classList.add('clickable');
-        tile.addEventListener('click', () => openLightbox(url, 'image'));
-      }
+      const url = await mediaSrc(m).catch(() => null);
+      if (!url) { tile.innerHTML = `<span class="media-missing">${m.type==='video'?'🎬':'🖼️'}<br/>불러올 수 없음</span>`; continue; }
+      if (m.type === 'video') { tile.innerHTML = `<video src="${url}" controls preload="metadata"></video>`; }
+      else { tile.innerHTML = `<img src="${url}"/>`; tile.classList.add('clickable'); tile.addEventListener('click', () => openLightbox(url, 'image')); }
     }
   }
 }
-
 function openLightbox(url, type) {
   const lb = $('lightbox');
-  lb.innerHTML = type === 'video'
-    ? `<video src="${url}" controls autoplay></video>`
-    : `<img src="${url}"/>`;
+  lb.innerHTML = type === 'video' ? `<video src="${url}" controls autoplay></video>` : `<img src="${url}"/>`;
   lb.classList.add('show');
 }
-$('lightbox').addEventListener('click', () => {
-  const lb = $('lightbox');
-  lb.classList.remove('show'); lb.innerHTML = '';
-});
+$('lightbox').addEventListener('click', () => { const lb = $('lightbox'); lb.classList.remove('show'); lb.innerHTML = ''; });
+
+// ── 라운드(스코어) 렌더 ─────────────────────────────────────
+function renderRoundStats() {
+  const live = activeRounds().filter(r => typeof r.score === 'number');
+  const scores = live.map(r => r.score);
+  const best = scores.length ? Math.min(...scores) : '—';
+  const sorted = live.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.created - a.created);
+  const recent = sorted.slice(0, 5).map(r => r.score);
+  const avg = recent.length ? Math.round(recent.reduce((s,v)=>s+v,0)/recent.length) : '—';
+  $('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-num blue">${live.length}</div><div class="stat-label">총 라운드</div></div>
+    <div class="stat-card"><div class="stat-num">${best}</div><div class="stat-label">베스트 스코어</div></div>
+    <div class="stat-card"><div class="stat-num warm">${avg}</div><div class="stat-label">평균(최근5)</div></div>`;
+}
+
+function renderRounds() {
+  const list = activeRounds().sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.created - a.created);
+  if (!list.length) {
+    $('roundList').innerHTML = `<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">첫 라운드를 기록해보세요</div><div class="empty-sub">오른쪽 아래 <b>+</b> 버튼으로<br/>라운드 스코어를 남기면 추이 그래프가 그려져요.</div></div>`;
+    return;
+  }
+  $('roundList').innerHTML = list.map(r => {
+    const par = Number(r.par) || 72;
+    const diff = (typeof r.score === 'number') ? r.score - par : null;
+    const diffCls = diff === null ? '' : diff > 0 ? 'over' : diff < 0 ? 'under' : 'even';
+    const diffTxt = diff === null ? '' : diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : 'E';
+    const meta = [];
+    if (r.putts) meta.push(`퍼팅 <b>${esc(String(r.putts))}</b>`);
+    meta.push(`파 <b>${par}</b>`);
+    return `<div class="round-card">
+      <div class="round-top"><span class="round-date">${fmtDate(r.date)}</span>${r.course?`<span class="round-course">${esc(r.course)}</span>`:''}<button class="note-menu" data-round="${r.id}">⋯</button></div>
+      <div class="round-score">${typeof r.score==='number'?r.score:'—'}<span>타</span>${diffTxt?`<em class="${diffCls}">${diffTxt}</em>`:''}</div>
+      <div class="round-meta">${meta.map(x=>`<span>${x}</span>`).join('')}</div>
+      ${r.memo?`<div class="round-memo">${esc(r.memo)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderGraph() {
+  const el = $('graph');
+  const live = activeRounds().filter(r => typeof r.score === 'number')
+    .sort((a,b) => (a.date||'').localeCompare(b.date||'') || a.created - b.created).slice(-20);
+  if (live.length < 2) { el.innerHTML = `<div class="graph-empty">라운드를 <b>2회 이상</b> 기록하면<br/>스코어 추이 그래프가 나타나요 📈</div>`; return; }
+  const scores = live.map(r => r.score);
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const pad = Math.max(2, Math.round((max - min) * 0.2));
+  const lo = min - pad, hi = max + pad, range = (hi - lo) || 1;
+  const W = 600, H = 210, L = 42, R = 14, T = 22, B = 40;
+  const px = i => L + (W - L - R) * (i / (live.length - 1));
+  const py = v => T + (H - T - B) * (1 - (v - lo) / range);
+  const pts = live.map((r, i) => `${px(i).toFixed(1)},${py(r.score).toFixed(1)}`).join(' ');
+  const area = `${L},${H-B} ${pts} ${W-R},${H-B}`;
+  const circles = live.map((r, i) => `<circle cx="${px(i).toFixed(1)}" cy="${py(r.score).toFixed(1)}" r="4" fill="#4ade80" stroke="#0e150f" stroke-width="2"/>`).join('');
+  const vals = live.map((r, i) => `<text x="${px(i).toFixed(1)}" y="${(py(r.score)-11).toFixed(1)}" fill="#c4ccc2" font-size="13" font-family="monospace" text-anchor="middle">${r.score}</text>`).join('');
+  const yLabels = [hi, Math.round((hi+lo)/2), lo].map(v => `<text x="${L-8}" y="${(py(v)+4).toFixed(1)}" fill="#6b7a6d" font-size="11" font-family="monospace" text-anchor="end">${v}</text><line x1="${L}" y1="${py(v).toFixed(1)}" x2="${W-R}" y2="${py(v).toFixed(1)}" stroke="#1a281c" stroke-width="1"/>`).join('');
+  const idxs = live.length <= 4 ? live.map((_,i)=>i) : [0, Math.floor((live.length-1)/2), live.length-1];
+  const xLabels = idxs.map(i => `<text x="${px(i).toFixed(1)}" y="${H-14}" fill="#6b7a6d" font-size="11" font-family="monospace" text-anchor="middle">${shortDate(live[i].date)}</text>`).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="스코어 추이 그래프">
+    <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ade80" stop-opacity="0.28"/><stop offset="100%" stop-color="#4ade80" stop-opacity="0"/></linearGradient></defs>
+    ${yLabels}
+    <polygon points="${area}" fill="url(#ga)"/>
+    <polyline points="${pts}" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${circles}${vals}${xLabels}
+  </svg>`;
+}
+
+// ── 탭 전환 ─────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  activeView = t.dataset.view;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  render();
+}));
 
 // ── 필터/검색 ───────────────────────────────────────────────
-filterScroll.addEventListener('click', e => {
-  const b = e.target.closest('.chip');
-  if (!b) return;
-  activeFilter = b.dataset.filter;
-  render();
-});
-searchInput.addEventListener('input', e => { searchTerm = e.target.value; renderNotes(); });
+$('filterScroll').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { activeFilter = b.dataset.filter; render(); } });
+$('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderNotes(); });
 
-// ── 노트 메뉴 ───────────────────────────────────────────────
-noteList.addEventListener('click', e => {
-  const b = e.target.closest('.note-menu');
-  if (!b) return;
-  sheetTargetId = b.dataset.menu;
-  sheetBackdrop.classList.add('show');
+// ── 액션 시트 (노트/라운드 공용) ────────────────────────────
+document.body.addEventListener('click', e => {
+  const nb = e.target.closest('.note-menu[data-note]');
+  const rb = e.target.closest('.note-menu[data-round]');
+  if (nb) { sheetTarget = { type: 'note', id: nb.dataset.note }; $('sheetBackdrop').classList.add('show'); }
+  else if (rb) { sheetTarget = { type: 'round', id: rb.dataset.round }; $('sheetBackdrop').classList.add('show'); }
 });
-$('sheetCancel').addEventListener('click', () => sheetBackdrop.classList.remove('show'));
-sheetBackdrop.addEventListener('click', e => { if (e.target === sheetBackdrop) sheetBackdrop.classList.remove('show'); });
+$('sheetCancel').addEventListener('click', () => $('sheetBackdrop').classList.remove('show'));
+$('sheetBackdrop').addEventListener('click', e => { if (e.target === $('sheetBackdrop')) $('sheetBackdrop').classList.remove('show'); });
 $('sheetEdit').addEventListener('click', () => {
-  sheetBackdrop.classList.remove('show');
-  const n = notes.find(x => x.id === sheetTargetId);
-  if (n) openModal(n);
+  $('sheetBackdrop').classList.remove('show');
+  if (!sheetTarget) return;
+  if (sheetTarget.type === 'note') { const n = notes.find(x => x.id === sheetTarget.id); if (n) openModal(n); }
+  else { const r = rounds.find(x => x.id === sheetTarget.id); if (r) openRoundModal(r); }
 });
 $('sheetDelete').addEventListener('click', () => {
-  sheetBackdrop.classList.remove('show');
-  const n = notes.find(x => x.id === sheetTargetId);
-  if (n) {
-    n.deleted = true; n.updated = Date.now();
-    (n.media || []).forEach(m => mediaDelete(m.id));
-    n.media = [];
+  $('sheetBackdrop').classList.remove('show');
+  if (!sheetTarget) return;
+  if (sheetTarget.type === 'note') {
+    const n = notes.find(x => x.id === sheetTarget.id);
+    if (n) { n.deleted = true; n.updated = Date.now(); (n.media||[]).forEach(m => deleteMediaEverywhere(m.id)); n.media = []; }
+    toast('노트를 삭제했어요');
+  } else {
+    const r = rounds.find(x => x.id === sheetTarget.id);
+    if (r) { r.deleted = true; r.updated = Date.now(); }
+    toast('라운드를 삭제했어요');
   }
-  commit(); toast('노트를 삭제했어요');
+  commit();
 });
+
+// ── FAB ─────────────────────────────────────────────────────
+$('fab').addEventListener('click', () => { activeView === 'notes' ? openModal(null) : openRoundModal(null); });
 
 // ── 노트 모달 ───────────────────────────────────────────────
 function renderCatPicker() {
-  catPicker.innerHTML = CATS.map(c => `
-    <button class="cat-opt ${selectedCat===c.id?'active':''}" data-cat="${c.id}">${c.emoji} ${c.label}</button>
-  `).join('');
+  $('catPicker').innerHTML = CATS.map(c => `<button class="cat-opt ${selectedCat===c.id?'active':''}" data-cat="${c.id}">${c.emoji} ${c.label}</button>`).join('');
 }
-catPicker.addEventListener('click', e => {
-  const b = e.target.closest('.cat-opt');
-  if (!b) return;
-  selectedCat = b.dataset.cat;
-  renderCatPicker();
-});
+$('catPicker').addEventListener('click', e => { const b = e.target.closest('.cat-opt'); if (b) { selectedCat = b.dataset.cat; renderCatPicker(); } });
 
 function openModal(note) {
   editingId = note ? note.id : null;
@@ -791,157 +642,141 @@ function openModal(note) {
   $('fBody').value = note ? note.body : '';
   $('fTags').value = note ? (note.tags||[]).join(', ') : '';
   modalMedia = note && note.media ? note.media.map(m => ({ ...m, isNew: false, removed: false })) : [];
-  renderCatPicker();
-  renderModalMedia();
-  modalBackdrop.classList.add('show');
+  renderCatPicker(); renderModalMedia();
+  $('modalBackdrop').classList.add('show');
   setTimeout(() => $('fTitle').focus(), 100);
 }
+function closeModal() { $('modalBackdrop').classList.remove('show'); editingId = null; modalMedia = []; }
 
-// 모달 안 첨부 미리보기
 async function renderModalMedia() {
   const wrap = $('mediaPreview');
   const items = modalMedia.filter(m => !m.removed);
-  wrap.innerHTML = items.map(m => `
-    <div class="media-tile" id="mt-${m.id}">
-      <span class="media-missing">${m.type === 'video' ? '🎬' : '🖼️'}</span>
-      <button class="media-rm" data-rm="${m.id}">×</button>
-    </div>`).join('');
+  wrap.innerHTML = items.map(m => `<div class="media-tile" id="mt-${m.id}"><span class="media-missing">${m.type==='video'?'🎬':'🖼️'}</span><button class="media-rm" data-rm="${m.id}">×</button></div>`).join('');
   for (const m of items) {
-    const tile = document.getElementById('mt-' + m.id);
-    if (!tile) continue;
+    const tile = document.getElementById('mt-' + m.id); if (!tile) continue;
     const rmBtn = tile.querySelector('.media-rm');
-    let blob = m.blob;
-    if (!blob && !m.isNew) { try { const rec = await mediaGet(m.id); blob = rec && rec.blob; } catch {} }
-    if (!blob) { tile.querySelector('.media-missing').innerHTML = `${m.type === 'video' ? '🎬' : '🖼️'}<br/>다른 기기`; continue; }
-    const url = URL.createObjectURL(blob);
-    const el = m.type === 'video' ? `<video src="${url}" muted></video>` : `<img src="${url}"/>`;
-    tile.innerHTML = el;
+    let url = null;
+    if (m.blob) url = URL.createObjectURL(m.blob);
+    else url = await mediaSrc(m).catch(() => null);
+    if (!url) continue;
+    tile.innerHTML = m.type === 'video' ? `<video src="${url}" muted></video>` : `<img src="${url}"/>`;
     tile.appendChild(rmBtn);
   }
 }
-
 $('mediaInput').addEventListener('change', e => {
-  Array.from(e.target.files).forEach(f => {
-    modalMedia.push({
-      id: uid(),
-      type: f.type.startsWith('video') ? 'video' : 'image',
-      mime: f.type, name: f.name, isNew: true, blob: f, removed: false
-    });
-  });
-  e.target.value = '';
-  renderModalMedia();
+  Array.from(e.target.files).forEach(f => modalMedia.push({ id: uid(), type: f.type.startsWith('video')?'video':'image', mime: f.type, name: f.name, isNew: true, blob: f, removed: false }));
+  e.target.value = ''; renderModalMedia();
 });
+$('mediaPreview').addEventListener('click', e => { const b = e.target.closest('.media-rm'); if (b) { const m = modalMedia.find(x => x.id === b.dataset.rm); if (m) m.removed = true; renderModalMedia(); } });
 
-$('mediaPreview').addEventListener('click', e => {
-  const b = e.target.closest('.media-rm');
-  if (!b) return;
-  const m = modalMedia.find(x => x.id === b.dataset.rm);
-  if (m) m.removed = true;
-  renderModalMedia();
-});
-function closeModal() { modalBackdrop.classList.remove('show'); editingId = null; modalMedia = []; }
-
-$('fab').addEventListener('click', () => openModal(null));
 $('cancelBtn').addEventListener('click', closeModal);
-modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
+$('modalBackdrop').addEventListener('click', e => { if (e.target === $('modalBackdrop')) closeModal(); });
 
 $('saveBtn').addEventListener('click', async () => {
-  const title = $('fTitle').value.trim();
-  const body = $('fBody').value.trim();
-  const keptMedia = modalMedia.filter(m => !m.removed);
-  if (!title && !body && !keptMedia.length) { toast('제목·내용·사진 중 하나는 입력해주세요'); return; }
+  const title = $('fTitle').value.trim(), body = $('fBody').value.trim();
+  const kept = modalMedia.filter(m => !m.removed);
+  if (!title && !body && !kept.length) { toast('제목·내용·사진 중 하나는 입력해주세요'); return; }
   const tags = $('fTags').value.split(',').map(t => t.trim()).filter(Boolean);
   const date = $('fDate').value || todayStr();
   const noteId = editingId || uid();
 
-  // 첨부 파일 저장/삭제 (IndexedDB)
-  const saveBtn = $('saveBtn');
-  saveBtn.disabled = true;
+  const btn = $('saveBtn'); btn.disabled = true; btn.textContent = '저장 중…';
   try {
     for (const m of modalMedia) {
-      if (m.removed) { if (!m.isNew) await mediaDelete(m.id); continue; }
+      if (m.removed) { if (!m.isNew) await deleteMediaEverywhere(m.id); continue; }
       if (m.isNew && m.blob) {
-        await mediaPut({ id: m.id, noteId, type: m.type, mime: m.mime, name: m.name, blob: m.blob });
+        await mediaPut({ id: m.id, type: m.type, mime: m.mime, name: m.name, blob: m.blob });
+        if (syncStatus === 'on') await uploadMedia(m.id, m.blob, m.mime);
       }
     }
-  } catch (e) { console.warn('media save failed', e); }
-  saveBtn.disabled = false;
+  } catch (e) { console.warn('media save', e); }
+  btn.disabled = false; btn.textContent = '저장';
 
-  const media = keptMedia.map(m => ({ id: m.id, type: m.type, mime: m.mime, name: m.name }));
-
-  if (editingId) {
-    const n = notes.find(x => x.id === editingId);
-    Object.assign(n, { cat: selectedCat, date, title, body, tags, media, updated: Date.now(), deleted: false });
-    toast('수정했어요 ✓');
-  } else {
-    const t = Date.now();
-    notes.push({ id: noteId, cat: selectedCat, date, title, body, tags, media, created: t, updated: t });
-    toast('노트를 저장했어요 ⛳');
-  }
+  const media = kept.map(m => ({ id: m.id, type: m.type, mime: m.mime, name: m.name }));
+  if (editingId) { const n = notes.find(x => x.id === editingId); Object.assign(n, { cat: selectedCat, date, title, body, tags, media, updated: Date.now(), deleted: false }); toast('수정했어요 ✓'); }
+  else { const t = Date.now(); notes.push({ id: noteId, cat: selectedCat, date, title, body, tags, media, created: t, updated: t }); toast('노트를 저장했어요 ⛳'); }
   commit(); closeModal();
 });
 
-// ── 백업 내보내기/가져오기 ──────────────────────────────────
+// ── 라운드 모달 ─────────────────────────────────────────────
+function openRoundModal(round) {
+  roundEditingId = round ? round.id : null;
+  $('roundModalTitle').textContent = round ? '라운드 수정' : '새 라운드';
+  $('rDate').value = round ? round.date : todayStr();
+  $('rCourse').value = round ? (round.course || '') : '';
+  $('rScore').value = round && typeof round.score === 'number' ? round.score : '';
+  $('rPar').value = round && round.par ? round.par : '';
+  $('rPutts').value = round && round.putts ? round.putts : '';
+  $('rMemo').value = round ? (round.memo || '') : '';
+  $('roundBackdrop').classList.add('show');
+  setTimeout(() => $('rScore').focus(), 100);
+}
+function closeRoundModal() { $('roundBackdrop').classList.remove('show'); roundEditingId = null; }
+$('rCancelBtn').addEventListener('click', closeRoundModal);
+$('roundBackdrop').addEventListener('click', e => { if (e.target === $('roundBackdrop')) closeRoundModal(); });
+$('rSaveBtn').addEventListener('click', () => {
+  const score = parseInt($('rScore').value, 10);
+  if (isNaN(score)) { toast('총 타수를 입력해주세요'); return; }
+  const par = parseInt($('rPar').value, 10);
+  const putts = parseInt($('rPutts').value, 10);
+  const data = {
+    date: $('rDate').value || todayStr(),
+    course: $('rCourse').value.trim(),
+    score,
+    par: isNaN(par) ? 72 : par,
+    putts: isNaN(putts) ? null : putts,
+    memo: $('rMemo').value.trim(),
+    updated: Date.now(), deleted: false
+  };
+  if (roundEditingId) { const r = rounds.find(x => x.id === roundEditingId); Object.assign(r, data); toast('수정했어요 ✓'); }
+  else { rounds.push({ id: uid(), created: Date.now(), ...data }); toast('라운드를 저장했어요 ⛳'); }
+  commit(); closeRoundModal();
+});
+
+// ── 백업 ────────────────────────────────────────────────────
 $('exportBtn').addEventListener('click', () => {
-  const live = activeNotes();
-  if (!live.length) { toast('내보낼 노트가 없어요'); return; }
-  const blob = new Blob([JSON.stringify(live, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `골프노트_백업_${todayStr()}.json`; a.click();
-  URL.revokeObjectURL(url);
-  toast('백업 파일을 저장했어요 📤');
+  if (!activeNotes().length && !activeRounds().length) { toast('내보낼 데이터가 없어요'); return; }
+  const dump = { notes: activeNotes(), rounds: activeRounds(), exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = `골프노트_백업_${todayStr()}.json`; a.click(); URL.revokeObjectURL(url);
+  toast('백업 파일을 저장했어요 📤 (사진 제외)');
 });
 $('importBtn').addEventListener('click', () => $('importFile').click());
 $('importFile').addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-      if (!Array.isArray(data)) throw new Error();
-      const map = {};
-      notes.forEach(n => map[n.id] = n);
-      data.forEach(n => {
-        if (!n || !n.id) return;
-        if (!n.updated) n.updated = n.created || Date.now();
-        const ex = map[n.id];
-        if (!ex || (n.updated||0) >= (ex.updated||0)) map[n.id] = n;
-      });
-      notes = Object.values(map);
+      const inNotes = Array.isArray(data) ? data : (data.notes || []);
+      const inRounds = Array.isArray(data) ? [] : (data.rounds || []);
+      notes = mergeInto(notes, inNotes.map(n => ({ ...n, updated: n.updated || n.created || Date.now() })));
+      rounds = mergeInto(rounds, inRounds.map(r => ({ ...r, updated: r.updated || r.created || Date.now() })));
       commit();
-      toast(`${data.length}개 노트를 가져왔어요 📥`);
+      toast(`노트 ${inNotes.length} · 라운드 ${inRounds.length}개 가져왔어요 📥`);
     } catch { toast('올바른 백업 파일이 아니에요'); }
     e.target.value = '';
   };
   reader.readAsText(file);
 });
 
-// ════════════════════════════════════════════════════════════
-//  기기 간 동기화 (Firebase Firestore)
-// ════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  기기 간 동기화 (Firestore + Storage)
+// ══════════════════════════════════════════════════════════
 function setSyncStatus(s) {
   syncStatus = s;
   const pill = $('syncBtn');
-  const txt = $('syncPillText');
-  pill.className = 'sync-pill ' + (s === 'on' ? 'on' : s === 'connecting' ? 'connecting' : s === 'error' ? 'error' : '');
-  txt.textContent = s === 'on' ? '동기화 켜짐' : s === 'connecting' ? '연결 중…' : s === 'error' ? '동기화 오류' : '동기화';
+  pill.className = 'sync-pill ' + (s==='on'?'on':s==='connecting'?'connecting':s==='error'?'error':'');
+  $('syncPillText').textContent = s==='on'?'동기화 켜짐':s==='connecting'?'연결 중…':s==='error'?'동기화 오류':'동기화';
 }
-
-// 여러 기기의 노트를 id 기준으로 병합 (최신 updated 우선)
 function mergeInto(base, incoming) {
-  const map = {};
-  base.forEach(n => map[n.id] = n);
-  incoming.forEach(n => {
-    if (!n || !n.id) return;
-    const ex = map[n.id];
-    if (!ex || (n.updated||0) > (ex.updated||0)) map[n.id] = n;
-  });
+  const map = {}; base.forEach(n => map[n.id] = n);
+  (incoming||[]).forEach(n => { if (!n || !n.id) return; const ex = map[n.id]; if (!ex || (n.updated||0) > (ex.updated||0)) map[n.id] = n; });
   return Object.values(map);
 }
-function sig(arr) {
-  return arr.map(n => `${n.id}:${n.updated||0}:${n.deleted?1:0}`).sort().join('|');
+function sig(ns, rs) {
+  return [...ns.map(x=>`n${x.id}:${x.updated||0}:${x.deleted?1:0}`), ...rs.map(x=>`r${x.id}:${x.updated||0}:${x.deleted?1:0}`)].sort().join('|');
 }
 
 async function connectFirebase() {
@@ -949,183 +784,131 @@ async function connectFirebase() {
   setSyncStatus('connecting');
   try {
     if (!fb) {
-      const [appMod, fsMod] = await Promise.all([
+      const [appMod, fsMod, stMod] = await Promise.all([
         import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`),
         import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`),
+        import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-storage.js`),
       ]);
       const app = appMod.initializeApp(firebaseConfig);
-      const db = fsMod.getFirestore(app);
-      fb = { app, fs: fsMod, db, ref: null, unsub: null };
+      fb = { app, fs: fsMod, db: fsMod.getFirestore(app), st: stMod, storage: stMod.getStorage(app), ref: null, unsub: null };
     }
     if (fb.unsub) { fb.unsub(); fb.unsub = null; }
     fb.ref = fb.fs.doc(fb.db, 'spaces', syncCode);
-
     fb.unsub = fb.fs.onSnapshot(fb.ref, snap => {
-      const remote = (snap.data() && snap.data().notes) || [];
-      const merged = mergeInto(notes, remote);
-      if (sig(merged) !== sig(notes)) { notes = merged; persist(); render(); }
-      // 로컬에만 있는 변경이 있으면 서버로 올림
-      if (sig(merged) !== sig(remote)) pushToCloud();
+      const d = snap.data() || {};
+      const mn = mergeInto(notes, d.notes || []);
+      const mr = mergeInto(rounds, d.rounds || []);
+      if (sig(mn, mr) !== sig(notes, rounds)) { notes = mn; rounds = mr; persist(); render(); }
+      if (sig(mn, mr) !== sig(d.notes || [], d.rounds || [])) pushToCloud();
       setSyncStatus('on');
     }, err => { console.warn('sync error', err); setSyncStatus('error'); });
-
     setSyncStatus('on');
-    pushToCloud();  // 최초 연결 시 로컬 데이터 업로드
-  } catch (e) {
-    console.warn('firebase connect failed', e);
-    setSyncStatus('error');
-  }
+    await pushToCloud();
+    syncPendingMedia();
+  } catch (e) { console.warn('firebase connect failed', e); setSyncStatus('error'); }
 }
-
 async function pushToCloud() {
   if (!fb || !fb.ref || syncStatus === 'off') return;
-  try {
-    await fb.fs.setDoc(fb.ref, { notes, updatedAt: Date.now() });
-  } catch (e) {
-    console.warn('push failed', e);
-    setSyncStatus('error');
+  try { await fb.fs.setDoc(fb.ref, { notes, rounds, updatedAt: Date.now() }); }
+  catch (e) { console.warn('push failed', e); setSyncStatus('error'); }
+}
+async function uploadMedia(id, blob, mime) {
+  if (!fb || !fb.storage || !syncCode) return false;
+  try { await fb.st.uploadBytes(fb.st.ref(fb.storage, `spaces/${syncCode}/${id}`), blob, { contentType: mime || blob.type }); markUploaded(id); return true; }
+  catch (e) { console.warn('upload', e); return false; }
+}
+// 오프라인에서 첨부했다가 나중에 켠 경우 등, 아직 안 올라간 미디어 업로드
+async function syncPendingMedia() {
+  if (!fb || !fb.storage || !syncCode) return;
+  for (const n of notes) {
+    if (n.deleted || !n.media) continue;
+    for (const m of n.media) {
+      if (uploaded.has(m.id)) continue;
+      try { const rec = await mediaGet(m.id); if (rec && rec.blob) await uploadMedia(m.id, rec.blob, m.mime); } catch {}
+    }
   }
 }
-
 function disableSync() {
   if (fb && fb.unsub) { fb.unsub(); fb.unsub = null; }
-  fb = null; syncCode = null;
-  localStorage.removeItem(CODE_KEY);
+  fb = null; syncCode = null; localStorage.removeItem(CODE_KEY);
   setSyncStatus('off');
 }
-
 function genCode() {
   const alpha = '23456789abcdefghjkmnpqrstuvwxyz';
-  const pick = n => Array.from(crypto.getRandomValues(new Uint8Array(n)))
-    .map(x => alpha[x % alpha.length]).join('');
+  const pick = n => Array.from(crypto.getRandomValues(new Uint8Array(n))).map(x => alpha[x % alpha.length]).join('');
   return `golf-${pick(4)}-${pick(4)}`;
 }
 
-// ── 동기화 모달 UI ──────────────────────────────────────────
-function openSync() {
-  renderSyncBody();
-  syncBackdrop.classList.add('show');
-}
-function closeSync() { syncBackdrop.classList.remove('show'); }
-
+// ── 동기화 모달 ─────────────────────────────────────────────
+function openSync() { renderSyncBody(); $('syncBackdrop').classList.add('show'); }
+function closeSync() { $('syncBackdrop').classList.remove('show'); }
 function renderSyncBody() {
   const body = $('syncBody');
   if (syncCode) {
     body.innerHTML = `
-      <div class="status-line">상태: <b>${syncStatus === 'on' ? '연결됨 · 실시간 동기화 중' : syncStatus === 'connecting' ? '연결 중…' : '오프라인/오류'}</b></div>
-      <div class="sync-desc">아래 <b>연결 코드</b>를 다른 기기(폰·데스크탑)의 같은 화면에 입력하면 노트가 자동으로 함께 보여요.</div>
+      <div class="status-line">상태: <b>${syncStatus==='on'?'연결됨 · 실시간 동기화 중':syncStatus==='connecting'?'연결 중…':'오프라인/오류'}</b></div>
+      <div class="sync-desc">아래 <b>연결 코드</b>를 다른 기기에 입력하면 노트·스코어·사진이 모두 함께 보여요.</div>
       <label class="field-label">내 연결 코드</label>
-      <div class="code-box">
-        <input id="syncCodeShow" value="${esc(syncCode)}" readonly/>
-        <button class="copy-btn" id="copyCodeBtn">복사</button>
-      </div>
-      <div class="hint">📱 <b>다른 기기 연결법</b><br/>그 기기에서 이 앱을 열고 → 상단 <b>동기화</b> → <b>다른 기기 코드 입력</b>에<br/>위 코드를 그대로 입력하면 끝!</div>
-      <div class="modal-actions">
-        <button class="btn btn-danger" id="syncOffBtn">연동 끄기</button>
-        <button class="btn btn-primary" id="syncDoneBtn">완료</button>
-      </div>`;
+      <div class="code-box"><input id="syncCodeShow" value="${esc(syncCode)}" readonly/><button class="copy-btn" id="copyCodeBtn">복사</button></div>
+      <div class="hint">📱 <b>다른 기기 연결법</b><br/>그 기기에서 이 앱을 열고 → 상단 <b>동기화</b> → <b>다른 기기 코드 입력</b>에 위 코드를 입력하면 끝!</div>
+      <div class="modal-actions"><button class="btn btn-danger" id="syncOffBtn">연동 끄기</button><button class="btn btn-primary" id="syncDoneBtn">완료</button></div>`;
     $('copyCodeBtn').addEventListener('click', () => copyText(syncCode));
-    $('syncOffBtn').addEventListener('click', () => {
-      disableSync(); renderSyncBody(); toast('동기화를 껐어요');
-    });
+    $('syncOffBtn').addEventListener('click', () => { disableSync(); renderSyncBody(); toast('동기화를 껐어요'); });
     $('syncDoneBtn').addEventListener('click', closeSync);
   } else {
-    const suggested = genCode();
     body.innerHTML = `
-      <div class="sync-desc">폰과 데스크탑에서 <b>같은 코드</b>를 쓰면 노트가 실시간으로 함께 저장돼요. 이 코드가 곧 비밀번호이니 <b>남에게 알려주지 마세요.</b></div>
+      <div class="sync-desc">폰과 데스크탑에서 <b>같은 코드</b>를 쓰면 노트·스코어·사진이 실시간으로 함께 저장돼요. 이 코드가 곧 비밀번호이니 <b>남에게 알려주지 마세요.</b></div>
       <label class="field-label">① 새로 시작 — 이 코드를 쓰세요</label>
-      <div class="code-box">
-        <input id="newCodeInput" value="${suggested}"/>
-        <button class="copy-btn" id="regenBtn">↻ 새로</button>
-      </div>
+      <div class="code-box"><input id="newCodeInput" value="${genCode()}"/><button class="copy-btn" id="regenBtn">↻ 새로</button></div>
       <button class="btn btn-primary" id="startNewBtn" style="width:100%; margin-top:6px;">이 코드로 동기화 시작</button>
       <div class="hint">이미 <b>다른 기기에서 코드를 만들었다면</b> 아래에 그 코드를 붙여넣으세요.</div>
       <label class="field-label">② 다른 기기 코드 입력 (연결)</label>
-      <div class="code-box">
-        <input id="joinCodeInput" placeholder="golf-xxxx-xxxx"/>
-        <button class="copy-btn" id="joinBtn">연결</button>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="syncCancelBtn">닫기</button>
-      </div>`;
+      <div class="code-box"><input id="joinCodeInput" placeholder="golf-xxxx-xxxx"/><button class="copy-btn" id="joinBtn">연결</button></div>
+      <div class="modal-actions"><button class="btn btn-ghost" id="syncCancelBtn">닫기</button></div>`;
     $('regenBtn').addEventListener('click', () => { $('newCodeInput').value = genCode(); });
     $('startNewBtn').addEventListener('click', () => startSync($('newCodeInput').value));
     $('joinBtn').addEventListener('click', () => startSync($('joinCodeInput').value));
     $('syncCancelBtn').addEventListener('click', closeSync);
   }
 }
-
-function startSync(rawCode) {
-  const code = (rawCode || '').trim().toLowerCase();
+function startSync(raw) {
+  const code = (raw||'').trim().toLowerCase();
   if (code.length < 10) { toast('코드는 10자 이상이어야 해요'); return; }
   if (!/^[a-z0-9-]+$/.test(code)) { toast('영문 소문자·숫자·하이픈만 사용하세요'); return; }
-  syncCode = code;
-  localStorage.setItem(CODE_KEY, code);
-  renderSyncBody();
-  connectFirebase();
-  toast('동기화를 시작했어요 ☁️');
+  syncCode = code; localStorage.setItem(CODE_KEY, code);
+  renderSyncBody(); connectFirebase(); toast('동기화를 시작했어요 ☁️');
 }
-
 async function copyText(t) {
   try { await navigator.clipboard.writeText(t); toast('코드를 복사했어요 ✓'); }
-  catch {
-    const el = $('syncCodeShow'); if (el) { el.select(); document.execCommand('copy'); toast('코드를 복사했어요 ✓'); }
-  }
+  catch { const el = $('syncCodeShow'); if (el) { el.select(); document.execCommand('copy'); toast('코드를 복사했어요 ✓'); } }
 }
-
 $('syncBtn').addEventListener('click', openSync);
 $('syncBtn2').addEventListener('click', openSync);
-syncBackdrop.addEventListener('click', e => { if (e.target === syncBackdrop) closeSync(); });
+$('syncBackdrop').addEventListener('click', e => { if (e.target === $('syncBackdrop')) closeSync(); });
 
 // ── 유틸 ────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fmtDate(s) {
   if (!s) return '';
-  const [y, m, d] = s.split('-');
-  const today = todayStr();
-  if (s === today) return '오늘';
-  const yest = new Date(); yest.setDate(yest.getDate()-1);
-  const yestStr = `${yest.getFullYear()}-${String(yest.getMonth()+1).padStart(2,'0')}-${String(yest.getDate()).padStart(2,'0')}`;
-  if (s === yestStr) return '어제';
-  return `${Number(m)}월 ${Number(d)}일`;
+  const today = todayStr(); if (s === today) return '오늘';
+  const y = new Date(); y.setDate(y.getDate()-1);
+  const yStr = `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+  if (s === yStr) return '어제';
+  const [, m, d] = s.split('-'); return `${Number(m)}월 ${Number(d)}일`;
 }
-function esc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+function shortDate(s) { if (!s) return ''; const [, m, d] = s.split('-'); return `${Number(m)}/${Number(d)}`; }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 let toastTimer;
-function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
-}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200); }
 
-// ── PWA 설치 ────────────────────────────────────────────────
+// ── PWA ─────────────────────────────────────────────────────
 let deferredPrompt = null;
-const banner = $('install-banner');
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); deferredPrompt = e; banner.classList.add('show');
-});
-$('installBtn').addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  banner.classList.remove('show');
-  deferredPrompt = null;
-});
-$('closeBanner').addEventListener('click', () => banner.classList.remove('show'));
-window.addEventListener('appinstalled', () => { banner.classList.remove('show'); deferredPrompt = null; });
-
-// ── Service Worker ──────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('install-banner').classList.add('show'); });
+$('installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; $('install-banner').classList.remove('show'); deferredPrompt = null; });
+$('closeBanner').addEventListener('click', () => $('install-banner').classList.remove('show'));
+window.addEventListener('appinstalled', () => { $('install-banner').classList.remove('show'); deferredPrompt = null; });
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 
 // ── 초기 실행 ───────────────────────────────────────────────
 render();
