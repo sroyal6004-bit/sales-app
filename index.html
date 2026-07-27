@@ -169,6 +169,42 @@
     }
     .tag::before { content: '#'; opacity: 0.5; }
 
+    /* ── Media (사진·동영상) ── */
+    .note-media { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
+    .media-tile {
+      width: 84px; height: 84px; border-radius: 10px; overflow: hidden;
+      background: var(--bg3); border: 1px solid var(--border2);
+      position: relative; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .media-tile img, .media-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .media-tile.clickable { cursor: pointer; }
+    .media-tile.clickable:active { opacity: 0.8; }
+    .media-missing { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.5; padding: 4px; }
+    .media-rm {
+      position: absolute; top: 3px; right: 3px;
+      width: 20px; height: 20px; border: none; border-radius: 50%;
+      background: rgba(0,0,0,0.72); color: #fff; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; line-height: 1;
+      -webkit-appearance: none;
+    }
+    .media-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .media-add {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 11px 16px; border-radius: 10px;
+      background: var(--bg3); border: 1px dashed var(--border2);
+      color: var(--text2); font-size: 13px; font-weight: 500; cursor: pointer;
+    }
+    .media-add:active { border-color: var(--accent2); color: var(--accent); }
+
+    .lightbox {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.93); display: none;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .lightbox.show { display: flex; }
+    .lightbox img, .lightbox video { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
     /* ── Empty state ── */
     .empty {
       text-align: center; padding: 60px 20px; color: var(--muted);
@@ -416,6 +452,15 @@
       <input type="text" id="fTags" placeholder="예) 드라이버, 슬라이스교정, 김프로레슨"/>
     </div>
 
+    <div class="field">
+      <label class="field-label">사진 · 동영상</label>
+      <div class="media-preview" id="mediaPreview"></div>
+      <label class="media-add">
+        <input type="file" id="mediaInput" accept="image/*,video/*" multiple style="display:none"/>
+        📎 사진/동영상 추가
+      </label>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cancelBtn">취소</button>
       <button class="btn btn-primary" id="saveBtn">저장</button>
@@ -457,6 +502,9 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- 이미지 확대 보기 -->
+<div class="lightbox" id="lightbox"></div>
+
 <script>
 // ── Firebase 설정 (공개돼도 안전한 값) ──────────────────────
 const firebaseConfig = {
@@ -494,6 +542,7 @@ let searchTerm = '';
 let editingId = null;
 let selectedCat = 'driver';
 let sheetTargetId = null;
+let modalMedia = [];   // 모달에서 편집 중인 첨부 목록 {id,type,mime,name,isNew,blob,removed}
 
 let syncCode = localStorage.getItem(CODE_KEY) || null;
 let syncStatus = 'off';      // off | connecting | on | error
@@ -519,6 +568,48 @@ function load() {
 }
 function persist() { localStorage.setItem(STORE_KEY, JSON.stringify(notes)); }
 function activeNotes() { return notes.filter(n => !n.deleted); }
+
+// ── 미디어 저장소 (IndexedDB) — 사진·동영상 원본은 이 기기에 보관 ──
+const MEDIA_DB = 'golf-media', MEDIA_STORE = 'files';
+let _mediaDbPromise = null;
+function mediaDB() {
+  if (_mediaDbPromise) return _mediaDbPromise;
+  _mediaDbPromise = new Promise((res, rej) => {
+    try {
+      const req = indexedDB.open(MEDIA_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(MEDIA_STORE, { keyPath: 'id' });
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    } catch (e) { rej(e); }
+  });
+  return _mediaDbPromise;
+}
+async function mediaPut(rec) {
+  const db = await mediaDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(MEDIA_STORE, 'readwrite');
+    tx.objectStore(MEDIA_STORE).put(rec);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function mediaGet(id) {
+  const db = await mediaDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(MEDIA_STORE, 'readonly');
+    const r = tx.objectStore(MEDIA_STORE).get(id);
+    r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
+  });
+}
+async function mediaDelete(id) {
+  try {
+    const db = await mediaDB();
+    await new Promise(res => {
+      const tx = db.transaction(MEDIA_STORE, 'readwrite');
+      tx.objectStore(MEDIA_STORE).delete(id);
+      tx.oncomplete = res; tx.onerror = res;
+    });
+  } catch { /* ignore */ }
+}
 
 // 로컬 저장 + 화면 갱신 + 클라우드 반영
 function commit() { persist(); render(); pushToCloud(); }
@@ -596,10 +687,53 @@ function renderNotes() {
       </div>
       <div class="note-title">${esc(n.title) || '(제목 없음)'}</div>
       ${n.body ? `<div class="note-body">${esc(n.body)}</div>` : ''}
+      ${(n.media && n.media.length) ? `<div class="note-media" data-note="${n.id}"></div>` : ''}
       ${tags ? `<div class="note-tags">${tags}</div>` : ''}
     </div>`;
   }).join('');
+  hydrateCardMedia();
 }
+
+// 카드의 미디어 썸네일을 IndexedDB에서 불러와 채운다
+async function hydrateCardMedia() {
+  const wraps = document.querySelectorAll('.note-media');
+  for (const wrap of wraps) {
+    const n = notes.find(x => x.id === wrap.dataset.note);
+    if (!n || !n.media) continue;
+    wrap.innerHTML = '';
+    for (const m of n.media) {
+      const tile = document.createElement('div');
+      tile.className = 'media-tile';
+      wrap.appendChild(tile);
+      let rec = null;
+      try { rec = await mediaGet(m.id); } catch { rec = null; }
+      if (!rec || !rec.blob) {
+        tile.innerHTML = `<span class="media-missing">${m.type === 'video' ? '🎬' : '🖼️'}<br/>다른 기기</span>`;
+        continue;
+      }
+      const url = URL.createObjectURL(rec.blob);
+      if (m.type === 'video') {
+        tile.innerHTML = `<video src="${url}" controls preload="metadata"></video>`;
+      } else {
+        tile.innerHTML = `<img src="${url}"/>`;
+        tile.classList.add('clickable');
+        tile.addEventListener('click', () => openLightbox(url, 'image'));
+      }
+    }
+  }
+}
+
+function openLightbox(url, type) {
+  const lb = $('lightbox');
+  lb.innerHTML = type === 'video'
+    ? `<video src="${url}" controls autoplay></video>`
+    : `<img src="${url}"/>`;
+  lb.classList.add('show');
+}
+$('lightbox').addEventListener('click', () => {
+  const lb = $('lightbox');
+  lb.classList.remove('show'); lb.innerHTML = '';
+});
 
 // ── 필터/검색 ───────────────────────────────────────────────
 filterScroll.addEventListener('click', e => {
@@ -627,7 +761,11 @@ $('sheetEdit').addEventListener('click', () => {
 $('sheetDelete').addEventListener('click', () => {
   sheetBackdrop.classList.remove('show');
   const n = notes.find(x => x.id === sheetTargetId);
-  if (n) { n.deleted = true; n.updated = Date.now(); }
+  if (n) {
+    n.deleted = true; n.updated = Date.now();
+    (n.media || []).forEach(m => mediaDelete(m.id));
+    n.media = [];
+  }
   commit(); toast('노트를 삭제했어요');
 });
 
@@ -652,30 +790,92 @@ function openModal(note) {
   $('fTitle').value = note ? note.title : '';
   $('fBody').value = note ? note.body : '';
   $('fTags').value = note ? (note.tags||[]).join(', ') : '';
+  modalMedia = note && note.media ? note.media.map(m => ({ ...m, isNew: false, removed: false })) : [];
   renderCatPicker();
+  renderModalMedia();
   modalBackdrop.classList.add('show');
   setTimeout(() => $('fTitle').focus(), 100);
 }
-function closeModal() { modalBackdrop.classList.remove('show'); editingId = null; }
+
+// 모달 안 첨부 미리보기
+async function renderModalMedia() {
+  const wrap = $('mediaPreview');
+  const items = modalMedia.filter(m => !m.removed);
+  wrap.innerHTML = items.map(m => `
+    <div class="media-tile" id="mt-${m.id}">
+      <span class="media-missing">${m.type === 'video' ? '🎬' : '🖼️'}</span>
+      <button class="media-rm" data-rm="${m.id}">×</button>
+    </div>`).join('');
+  for (const m of items) {
+    const tile = document.getElementById('mt-' + m.id);
+    if (!tile) continue;
+    const rmBtn = tile.querySelector('.media-rm');
+    let blob = m.blob;
+    if (!blob && !m.isNew) { try { const rec = await mediaGet(m.id); blob = rec && rec.blob; } catch {} }
+    if (!blob) { tile.querySelector('.media-missing').innerHTML = `${m.type === 'video' ? '🎬' : '🖼️'}<br/>다른 기기`; continue; }
+    const url = URL.createObjectURL(blob);
+    const el = m.type === 'video' ? `<video src="${url}" muted></video>` : `<img src="${url}"/>`;
+    tile.innerHTML = el;
+    tile.appendChild(rmBtn);
+  }
+}
+
+$('mediaInput').addEventListener('change', e => {
+  Array.from(e.target.files).forEach(f => {
+    modalMedia.push({
+      id: uid(),
+      type: f.type.startsWith('video') ? 'video' : 'image',
+      mime: f.type, name: f.name, isNew: true, blob: f, removed: false
+    });
+  });
+  e.target.value = '';
+  renderModalMedia();
+});
+
+$('mediaPreview').addEventListener('click', e => {
+  const b = e.target.closest('.media-rm');
+  if (!b) return;
+  const m = modalMedia.find(x => x.id === b.dataset.rm);
+  if (m) m.removed = true;
+  renderModalMedia();
+});
+function closeModal() { modalBackdrop.classList.remove('show'); editingId = null; modalMedia = []; }
 
 $('fab').addEventListener('click', () => openModal(null));
 $('cancelBtn').addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
 
-$('saveBtn').addEventListener('click', () => {
+$('saveBtn').addEventListener('click', async () => {
   const title = $('fTitle').value.trim();
   const body = $('fBody').value.trim();
-  if (!title && !body) { toast('제목이나 내용을 입력해주세요'); return; }
+  const keptMedia = modalMedia.filter(m => !m.removed);
+  if (!title && !body && !keptMedia.length) { toast('제목·내용·사진 중 하나는 입력해주세요'); return; }
   const tags = $('fTags').value.split(',').map(t => t.trim()).filter(Boolean);
   const date = $('fDate').value || todayStr();
+  const noteId = editingId || uid();
+
+  // 첨부 파일 저장/삭제 (IndexedDB)
+  const saveBtn = $('saveBtn');
+  saveBtn.disabled = true;
+  try {
+    for (const m of modalMedia) {
+      if (m.removed) { if (!m.isNew) await mediaDelete(m.id); continue; }
+      if (m.isNew && m.blob) {
+        await mediaPut({ id: m.id, noteId, type: m.type, mime: m.mime, name: m.name, blob: m.blob });
+      }
+    }
+  } catch (e) { console.warn('media save failed', e); }
+  saveBtn.disabled = false;
+
+  const media = keptMedia.map(m => ({ id: m.id, type: m.type, mime: m.mime, name: m.name }));
 
   if (editingId) {
     const n = notes.find(x => x.id === editingId);
-    Object.assign(n, { cat: selectedCat, date, title, body, tags, updated: Date.now(), deleted: false });
+    Object.assign(n, { cat: selectedCat, date, title, body, tags, media, updated: Date.now(), deleted: false });
     toast('수정했어요 ✓');
   } else {
     const t = Date.now();
-    notes.push({ id: uid(), cat: selectedCat, date, title, body, tags, created: t, updated: t });
+    notes.push({ id: noteId, cat: selectedCat, date, title, body, tags, media, created: t, updated: t });
     toast('노트를 저장했어요 ⛳');
   }
   commit(); closeModal();
