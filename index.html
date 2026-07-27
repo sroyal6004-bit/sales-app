@@ -64,6 +64,23 @@
     .header-title { font-size: 22px; font-weight: 900; color: var(--text); }
     .header-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-weight: 300; }
 
+    .sync-pill {
+      position: absolute; top: calc(env(safe-area-inset-top, 0px) + 18px); right: 18px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 12px; border-radius: 20px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      font-size: 11.5px; font-weight: 500; color: var(--text2);
+      cursor: pointer; -webkit-appearance: none; transition: all 0.15s;
+    }
+    .sync-pill:active { transform: scale(0.96); }
+    .sync-pill.on { border-color: var(--accent2); color: var(--accent); background: var(--accent-dim); }
+    .sync-pill.error { border-color: #5a2a34; color: var(--red); }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .sync-pill.on .sync-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .sync-pill.connecting .sync-dot { background: var(--warm); animation: pulse 1s infinite; }
+    .sync-pill.error .sync-dot { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
     /* ── Stats row ── */
     .stats-row {
       display: grid; grid-template-columns: repeat(3, 1fr);
@@ -229,8 +246,35 @@
     .btn:active { transform: scale(0.98); }
     .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #06120a; }
     .btn-ghost { background: transparent; border: 1px solid var(--border2); color: var(--muted); flex: 0 0 auto; padding: 14px 20px; }
+    .btn-danger { background: transparent; border: 1px solid #5a2a34; color: var(--red); }
 
-    /* ── Action sheet (for note menu) ── */
+    /* ── Sync modal specifics ── */
+    .sync-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 18px; }
+    .code-box {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 12px; padding: 6px 6px 6px 14px; margin-bottom: 8px;
+    }
+    .code-box input {
+      flex: 1; background: none; border: none; outline: none;
+      color: var(--accent); font-family: var(--mono); font-size: 16px; letter-spacing: 0.04em;
+    }
+    .copy-btn {
+      padding: 9px 13px; border-radius: 9px; border: none;
+      background: var(--accent-dim); color: var(--accent);
+      font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer;
+      white-space: nowrap; -webkit-appearance: none;
+    }
+    .hint {
+      font-size: 12px; color: var(--muted); line-height: 1.7;
+      background: var(--bg3); border-radius: 10px; padding: 12px 14px; margin: 14px 0 4px;
+      border-left: 2px solid var(--border2);
+    }
+    .hint b { color: var(--text2); }
+    .status-line { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+    .status-line b { color: var(--accent); }
+
+    /* ── Action sheet ── */
     .sheet-backdrop {
       position: fixed; inset: 0; z-index: 110;
       background: rgba(0,0,0,0.55); display: none;
@@ -255,10 +299,10 @@
     /* ── Backup bar ── */
     .backup-bar {
       display: flex; gap: 10px; margin-top: 26px; padding-top: 20px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--border); flex-wrap: wrap;
     }
     .backup-btn {
-      flex: 1; padding: 11px; border-radius: 10px;
+      flex: 1; min-width: 130px; padding: 11px; border-radius: 10px;
       background: var(--bg2); border: 1px solid var(--border2);
       color: var(--muted); font-family: var(--sans); font-size: 12.5px; font-weight: 500;
       cursor: pointer; transition: all 0.15s; -webkit-appearance: none;
@@ -272,7 +316,7 @@
       color: var(--accent); padding: 11px 20px; border-radius: 24px;
       font-size: 13px; font-weight: 500; z-index: 200;
       opacity: 0; transition: all 0.25s; pointer-events: none;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); max-width: 90%; text-align: center;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -300,6 +344,7 @@
 <body>
 <div id="app">
   <div class="header">
+    <button class="sync-pill" id="syncBtn"><span class="sync-dot"></span><span id="syncPillText">동기화</span></button>
     <div class="header-badge">Golf Study Journal · PWA</div>
     <div class="header-title">⛳ 골프 공부 노트</div>
     <div class="header-sub">배운 것을 기록하고, 다시 꺼내보며 실력을 쌓아요</div>
@@ -330,7 +375,8 @@
     <div class="note-list" id="noteList"></div>
 
     <div class="backup-bar">
-      <button class="backup-btn" id="exportBtn">📤 백업 내보내기 (JSON)</button>
+      <button class="backup-btn" id="syncBtn2">☁️ 기기 간 동기화 설정</button>
+      <button class="backup-btn" id="exportBtn">📤 백업 내보내기</button>
       <button class="backup-btn" id="importBtn">📥 백업 가져오기</button>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none"/>
     </div>
@@ -377,6 +423,15 @@
   </div>
 </div>
 
+<!-- 동기화 모달 -->
+<div class="modal-backdrop" id="syncBackdrop">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">☁️ 기기 간 동기화</div>
+    <div id="syncBody"></div>
+  </div>
+</div>
+
 <!-- 노트 액션 시트 -->
 <div class="sheet-backdrop" id="sheetBackdrop">
   <div class="sheet">
@@ -403,6 +458,17 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Firebase 설정 (공개돼도 안전한 값) ──────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAv5S3y_2_jU9dAhJMCDUGTz28XGqIZVR0",
+  authDomain: "golf-notes.firebaseapp.com",
+  projectId: "golf-notes",
+  storageBucket: "golf-notes.firebasestorage.app",
+  messagingSenderId: "761506125302",
+  appId: "1:761506125302:web:a99a7ae1ae1b683946e3d7"
+};
+const FB_VER = '10.12.5';
+
 // ── 카테고리 정의 ───────────────────────────────────────────
 const CATS = [
   { id: 'driver',  label: '드라이버',    emoji: '🏌️' },
@@ -419,14 +485,19 @@ const CATS = [
 const catById = id => CATS.find(c => c.id === id) || CATS[CATS.length-1];
 
 const STORE_KEY = 'golf-notes-v1';
+const CODE_KEY  = 'golf-sync-code';
 
 // ── 상태 ────────────────────────────────────────────────────
-let notes = load();
+let notes = load();          // 삭제 표식(tombstone) 포함 전체 배열
 let activeFilter = 'all';
 let searchTerm = '';
-let editingId = null;   // 편집 중인 노트 id
+let editingId = null;
 let selectedCat = 'driver';
 let sheetTargetId = null;
+
+let syncCode = localStorage.getItem(CODE_KEY) || null;
+let syncStatus = 'off';      // off | connecting | on | error
+let fb = null;               // { app, fs, db, ref, unsub }
 
 // ── DOM ─────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -436,46 +507,50 @@ const searchInput = $('searchInput');
 const modalBackdrop = $('modalBackdrop');
 const catPicker = $('catPicker');
 const sheetBackdrop = $('sheetBackdrop');
+const syncBackdrop = $('syncBackdrop');
 
 // ── 저장/불러오기 ───────────────────────────────────────────
 function load() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
-  catch { return []; }
+  try {
+    const arr = JSON.parse(localStorage.getItem(STORE_KEY)) || [];
+    arr.forEach(n => { if (!n.updated) n.updated = n.created || Date.now(); });
+    return arr;
+  } catch { return []; }
 }
 function persist() { localStorage.setItem(STORE_KEY, JSON.stringify(notes)); }
+function activeNotes() { return notes.filter(n => !n.deleted); }
+
+// 로컬 저장 + 화면 갱신 + 클라우드 반영
+function commit() { persist(); render(); pushToCloud(); }
 
 // ── 렌더링 ──────────────────────────────────────────────────
-function render() {
-  renderStats();
-  renderFilters();
-  renderNotes();
-}
+function render() { renderStats(); renderFilters(); renderNotes(); }
 
 function renderStats() {
-  $('statTotal').textContent = notes.length;
+  const live = activeNotes();
+  $('statTotal').textContent = live.length;
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  $('statMonth').textContent = notes.filter(n => (n.date||'').startsWith(ym)).length;
-  $('statStreak').textContent = calcStreak();
+  $('statMonth').textContent = live.filter(n => (n.date||'').startsWith(ym)).length;
+  $('statStreak').textContent = calcStreak(live);
 }
 
-// 연속 기록일: 오늘(또는 어제)부터 거꾸로 날짜가 이어지는 일수
-function calcStreak() {
-  if (!notes.length) return 0;
-  const days = new Set(notes.map(n => n.date).filter(Boolean));
+function calcStreak(live) {
+  if (!live.length) return 0;
+  const days = new Set(live.map(n => n.date).filter(Boolean));
   let streak = 0;
   let d = new Date();
   const key = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-  // 오늘 기록이 없으면 어제부터 시작
   if (!days.has(key(d))) d.setDate(d.getDate() - 1);
   while (days.has(key(d))) { streak++; d.setDate(d.getDate() - 1); }
   return streak;
 }
 
 function renderFilters() {
+  const live = activeNotes();
   const counts = {};
-  notes.forEach(n => counts[n.cat] = (counts[n.cat]||0) + 1);
-  const items = [{ id: 'all', label: '전체', emoji: '📋', cnt: notes.length }]
+  live.forEach(n => counts[n.cat] = (counts[n.cat]||0) + 1);
+  const items = [{ id: 'all', label: '전체', emoji: '📋', cnt: live.length }]
     .concat(CATS.filter(c => counts[c.id]).map(c => ({ ...c, cnt: counts[c.id] })));
   filterScroll.innerHTML = items.map(it => `
     <button class="chip ${activeFilter===it.id?'active':''}" data-filter="${it.id}">
@@ -485,7 +560,7 @@ function renderFilters() {
 
 function filteredNotes() {
   const term = searchTerm.trim().toLowerCase();
-  return notes
+  return activeNotes()
     .filter(n => activeFilter === 'all' || n.cat === activeFilter)
     .filter(n => {
       if (!term) return true;
@@ -498,7 +573,7 @@ function filteredNotes() {
 function renderNotes() {
   const list = filteredNotes();
   if (!list.length) {
-    const first = notes.length === 0;
+    const first = activeNotes().length === 0;
     noteList.innerHTML = `
       <div class="empty">
         <div class="empty-icon">${first ? '⛳' : '🔍'}</div>
@@ -526,7 +601,7 @@ function renderNotes() {
   }).join('');
 }
 
-// ── 필터/검색 이벤트 ────────────────────────────────────────
+// ── 필터/검색 ───────────────────────────────────────────────
 filterScroll.addEventListener('click', e => {
   const b = e.target.closest('.chip');
   if (!b) return;
@@ -535,7 +610,7 @@ filterScroll.addEventListener('click', e => {
 });
 searchInput.addEventListener('input', e => { searchTerm = e.target.value; renderNotes(); });
 
-// ── 노트 메뉴 (액션시트) ────────────────────────────────────
+// ── 노트 메뉴 ───────────────────────────────────────────────
 noteList.addEventListener('click', e => {
   const b = e.target.closest('.note-menu');
   if (!b) return;
@@ -551,11 +626,12 @@ $('sheetEdit').addEventListener('click', () => {
 });
 $('sheetDelete').addEventListener('click', () => {
   sheetBackdrop.classList.remove('show');
-  notes = notes.filter(x => x.id !== sheetTargetId);
-  persist(); render(); toast('노트를 삭제했어요');
+  const n = notes.find(x => x.id === sheetTargetId);
+  if (n) { n.deleted = true; n.updated = Date.now(); }
+  commit(); toast('노트를 삭제했어요');
 });
 
-// ── 모달 ────────────────────────────────────────────────────
+// ── 노트 모달 ───────────────────────────────────────────────
 function renderCatPicker() {
   catPicker.innerHTML = CATS.map(c => `
     <button class="cat-opt ${selectedCat===c.id?'active':''}" data-cat="${c.id}">${c.emoji} ${c.label}</button>
@@ -595,24 +671,24 @@ $('saveBtn').addEventListener('click', () => {
 
   if (editingId) {
     const n = notes.find(x => x.id === editingId);
-    Object.assign(n, { cat: selectedCat, date, title, body, tags });
+    Object.assign(n, { cat: selectedCat, date, title, body, tags, updated: Date.now(), deleted: false });
     toast('수정했어요 ✓');
   } else {
-    notes.push({ id: uid(), cat: selectedCat, date, title, body, tags, created: Date.now() });
+    const t = Date.now();
+    notes.push({ id: uid(), cat: selectedCat, date, title, body, tags, created: t, updated: t });
     toast('노트를 저장했어요 ⛳');
   }
-  persist(); render(); closeModal();
+  commit(); closeModal();
 });
 
 // ── 백업 내보내기/가져오기 ──────────────────────────────────
 $('exportBtn').addEventListener('click', () => {
-  if (!notes.length) { toast('내보낼 노트가 없어요'); return; }
-  const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+  const live = activeNotes();
+  if (!live.length) { toast('내보낼 노트가 없어요'); return; }
+  const blob = new Blob([JSON.stringify(live, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `골프노트_백업_${todayStr()}.json`;
-  a.click();
+  a.href = url; a.download = `골프노트_백업_${todayStr()}.json`; a.click();
   URL.revokeObjectURL(url);
   toast('백업 파일을 저장했어요 📤');
 });
@@ -625,17 +701,181 @@ $('importFile').addEventListener('change', e => {
     try {
       const data = JSON.parse(reader.result);
       if (!Array.isArray(data)) throw new Error();
-      // 기존 노트와 병합 (id 기준 중복 제거)
       const map = {};
-      [...notes, ...data].forEach(n => { if (n && n.id) map[n.id] = n; });
+      notes.forEach(n => map[n.id] = n);
+      data.forEach(n => {
+        if (!n || !n.id) return;
+        if (!n.updated) n.updated = n.created || Date.now();
+        const ex = map[n.id];
+        if (!ex || (n.updated||0) >= (ex.updated||0)) map[n.id] = n;
+      });
       notes = Object.values(map);
-      persist(); render();
+      commit();
       toast(`${data.length}개 노트를 가져왔어요 📥`);
     } catch { toast('올바른 백업 파일이 아니에요'); }
     e.target.value = '';
   };
   reader.readAsText(file);
 });
+
+// ════════════════════════════════════════════════════════════
+//  기기 간 동기화 (Firebase Firestore)
+// ════════════════════════════════════════════════════════════
+function setSyncStatus(s) {
+  syncStatus = s;
+  const pill = $('syncBtn');
+  const txt = $('syncPillText');
+  pill.className = 'sync-pill ' + (s === 'on' ? 'on' : s === 'connecting' ? 'connecting' : s === 'error' ? 'error' : '');
+  txt.textContent = s === 'on' ? '동기화 켜짐' : s === 'connecting' ? '연결 중…' : s === 'error' ? '동기화 오류' : '동기화';
+}
+
+// 여러 기기의 노트를 id 기준으로 병합 (최신 updated 우선)
+function mergeInto(base, incoming) {
+  const map = {};
+  base.forEach(n => map[n.id] = n);
+  incoming.forEach(n => {
+    if (!n || !n.id) return;
+    const ex = map[n.id];
+    if (!ex || (n.updated||0) > (ex.updated||0)) map[n.id] = n;
+  });
+  return Object.values(map);
+}
+function sig(arr) {
+  return arr.map(n => `${n.id}:${n.updated||0}:${n.deleted?1:0}`).sort().join('|');
+}
+
+async function connectFirebase() {
+  if (!syncCode) return;
+  setSyncStatus('connecting');
+  try {
+    if (!fb) {
+      const [appMod, fsMod] = await Promise.all([
+        import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`),
+        import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-firestore.js`),
+      ]);
+      const app = appMod.initializeApp(firebaseConfig);
+      const db = fsMod.getFirestore(app);
+      fb = { app, fs: fsMod, db, ref: null, unsub: null };
+    }
+    if (fb.unsub) { fb.unsub(); fb.unsub = null; }
+    fb.ref = fb.fs.doc(fb.db, 'spaces', syncCode);
+
+    fb.unsub = fb.fs.onSnapshot(fb.ref, snap => {
+      const remote = (snap.data() && snap.data().notes) || [];
+      const merged = mergeInto(notes, remote);
+      if (sig(merged) !== sig(notes)) { notes = merged; persist(); render(); }
+      // 로컬에만 있는 변경이 있으면 서버로 올림
+      if (sig(merged) !== sig(remote)) pushToCloud();
+      setSyncStatus('on');
+    }, err => { console.warn('sync error', err); setSyncStatus('error'); });
+
+    setSyncStatus('on');
+    pushToCloud();  // 최초 연결 시 로컬 데이터 업로드
+  } catch (e) {
+    console.warn('firebase connect failed', e);
+    setSyncStatus('error');
+  }
+}
+
+async function pushToCloud() {
+  if (!fb || !fb.ref || syncStatus === 'off') return;
+  try {
+    await fb.fs.setDoc(fb.ref, { notes, updatedAt: Date.now() });
+  } catch (e) {
+    console.warn('push failed', e);
+    setSyncStatus('error');
+  }
+}
+
+function disableSync() {
+  if (fb && fb.unsub) { fb.unsub(); fb.unsub = null; }
+  fb = null; syncCode = null;
+  localStorage.removeItem(CODE_KEY);
+  setSyncStatus('off');
+}
+
+function genCode() {
+  const alpha = '23456789abcdefghjkmnpqrstuvwxyz';
+  const pick = n => Array.from(crypto.getRandomValues(new Uint8Array(n)))
+    .map(x => alpha[x % alpha.length]).join('');
+  return `golf-${pick(4)}-${pick(4)}`;
+}
+
+// ── 동기화 모달 UI ──────────────────────────────────────────
+function openSync() {
+  renderSyncBody();
+  syncBackdrop.classList.add('show');
+}
+function closeSync() { syncBackdrop.classList.remove('show'); }
+
+function renderSyncBody() {
+  const body = $('syncBody');
+  if (syncCode) {
+    body.innerHTML = `
+      <div class="status-line">상태: <b>${syncStatus === 'on' ? '연결됨 · 실시간 동기화 중' : syncStatus === 'connecting' ? '연결 중…' : '오프라인/오류'}</b></div>
+      <div class="sync-desc">아래 <b>연결 코드</b>를 다른 기기(폰·데스크탑)의 같은 화면에 입력하면 노트가 자동으로 함께 보여요.</div>
+      <label class="field-label">내 연결 코드</label>
+      <div class="code-box">
+        <input id="syncCodeShow" value="${esc(syncCode)}" readonly/>
+        <button class="copy-btn" id="copyCodeBtn">복사</button>
+      </div>
+      <div class="hint">📱 <b>다른 기기 연결법</b><br/>그 기기에서 이 앱을 열고 → 상단 <b>동기화</b> → <b>다른 기기 코드 입력</b>에<br/>위 코드를 그대로 입력하면 끝!</div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="syncOffBtn">연동 끄기</button>
+        <button class="btn btn-primary" id="syncDoneBtn">완료</button>
+      </div>`;
+    $('copyCodeBtn').addEventListener('click', () => copyText(syncCode));
+    $('syncOffBtn').addEventListener('click', () => {
+      disableSync(); renderSyncBody(); toast('동기화를 껐어요');
+    });
+    $('syncDoneBtn').addEventListener('click', closeSync);
+  } else {
+    const suggested = genCode();
+    body.innerHTML = `
+      <div class="sync-desc">폰과 데스크탑에서 <b>같은 코드</b>를 쓰면 노트가 실시간으로 함께 저장돼요. 이 코드가 곧 비밀번호이니 <b>남에게 알려주지 마세요.</b></div>
+      <label class="field-label">① 새로 시작 — 이 코드를 쓰세요</label>
+      <div class="code-box">
+        <input id="newCodeInput" value="${suggested}"/>
+        <button class="copy-btn" id="regenBtn">↻ 새로</button>
+      </div>
+      <button class="btn btn-primary" id="startNewBtn" style="width:100%; margin-top:6px;">이 코드로 동기화 시작</button>
+      <div class="hint">이미 <b>다른 기기에서 코드를 만들었다면</b> 아래에 그 코드를 붙여넣으세요.</div>
+      <label class="field-label">② 다른 기기 코드 입력 (연결)</label>
+      <div class="code-box">
+        <input id="joinCodeInput" placeholder="golf-xxxx-xxxx"/>
+        <button class="copy-btn" id="joinBtn">연결</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="syncCancelBtn">닫기</button>
+      </div>`;
+    $('regenBtn').addEventListener('click', () => { $('newCodeInput').value = genCode(); });
+    $('startNewBtn').addEventListener('click', () => startSync($('newCodeInput').value));
+    $('joinBtn').addEventListener('click', () => startSync($('joinCodeInput').value));
+    $('syncCancelBtn').addEventListener('click', closeSync);
+  }
+}
+
+function startSync(rawCode) {
+  const code = (rawCode || '').trim().toLowerCase();
+  if (code.length < 10) { toast('코드는 10자 이상이어야 해요'); return; }
+  if (!/^[a-z0-9-]+$/.test(code)) { toast('영문 소문자·숫자·하이픈만 사용하세요'); return; }
+  syncCode = code;
+  localStorage.setItem(CODE_KEY, code);
+  renderSyncBody();
+  connectFirebase();
+  toast('동기화를 시작했어요 ☁️');
+}
+
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('코드를 복사했어요 ✓'); }
+  catch {
+    const el = $('syncCodeShow'); if (el) { el.select(); document.execCommand('copy'); toast('코드를 복사했어요 ✓'); }
+  }
+}
+
+$('syncBtn').addEventListener('click', openSync);
+$('syncBtn2').addEventListener('click', openSync);
+syncBackdrop.addEventListener('click', e => { if (e.target === syncBackdrop) closeSync(); });
 
 // ── 유틸 ────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -687,8 +927,10 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
-// ── 초기 렌더 ───────────────────────────────────────────────
+// ── 초기 실행 ───────────────────────────────────────────────
 render();
+setSyncStatus(syncCode ? 'connecting' : 'off');
+if (syncCode) connectFirebase();
 </script>
 </body>
 </html>
