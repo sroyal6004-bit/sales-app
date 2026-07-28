@@ -360,6 +360,59 @@ let uploaded = new Set(loadArr(UP_KEY));
 
 const $ = id => document.getElementById(id);
 
+// ══════════════════════════════════════════════════════════
+//  화면 레이어 관리 (뒤로 가기 버튼 제어)
+//  - 모달/시트/라이트박스/스코어탭이 열려 있으면 back = 닫기
+//  - 홈(노트 목록)에서만 back = 앱 종료(브라우저 기본 동작)
+// ══════════════════════════════════════════════════════════
+const uiStack = [];
+function pushHist(tag) { try { history.pushState({ golf: tag }, ''); return true; } catch { return false; } }
+function openLayer(tag, prep) {
+  if (prep) prep();
+  showLayer(tag);
+  const pushed = pushHist(tag);
+  uiStack.push({ tag, pushed });
+}
+function swapLayer(tag, prep) {
+  const top = uiStack[uiStack.length - 1];
+  if (top) hideLayer(top.tag);
+  if (prep) prep();
+  showLayer(tag);
+  if (top) top.tag = tag; else { const pushed = pushHist(tag); uiStack.push({ tag, pushed }); }
+}
+function uiBack() {
+  const top = uiStack[uiStack.length - 1];
+  if (!top) return;
+  if (top.pushed) history.back();          // popstate가 실제 닫기를 처리
+  else { uiStack.pop(); hideLayer(top.tag); }
+}
+window.addEventListener('popstate', () => {
+  if (!uiStack.length) return;             // 홈 → 브라우저 기본(종료/이전 페이지)
+  const top = uiStack.pop();
+  hideLayer(top.tag);
+});
+function showLayer(tag) {
+  switch (tag) {
+    case 'noteModal': $('modalBackdrop').classList.add('show'); setTimeout(() => $('fTitle').focus(), 100); break;
+    case 'roundModal': $('roundBackdrop').classList.add('show'); setTimeout(() => $('rScore').focus(), 100); break;
+    case 'syncModal': $('syncBackdrop').classList.add('show'); break;
+    case 'sheet': $('sheetBackdrop').classList.add('show'); break;
+    case 'lightbox': $('lightbox').classList.add('show'); break;
+    case 'rounds': activeView = 'rounds'; syncTabs(); render(); break;
+  }
+}
+function hideLayer(tag) {
+  switch (tag) {
+    case 'noteModal': closeModal(); break;
+    case 'roundModal': closeRoundModal(); break;
+    case 'syncModal': $('syncBackdrop').classList.remove('show'); break;
+    case 'sheet': $('sheetBackdrop').classList.remove('show'); break;
+    case 'lightbox': $('lightbox').classList.remove('show'); $('lightbox').innerHTML = ''; break;
+    case 'rounds': activeView = 'notes'; syncTabs(); render(); break;
+  }
+}
+function syncTabs() { document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === activeView)); }
+
 // ── 로드/저장 ───────────────────────────────────────────────
 function loadArr(key) {
   try {
@@ -512,11 +565,9 @@ async function hydrateCardMedia() {
   }
 }
 function openLightbox(url, type) {
-  const lb = $('lightbox');
-  lb.innerHTML = type === 'video' ? `<video src="${url}" controls autoplay></video>` : `<img src="${url}"/>`;
-  lb.classList.add('show');
+  openLayer('lightbox', () => { $('lightbox').innerHTML = type === 'video' ? `<video src="${url}" controls autoplay></video>` : `<img src="${url}"/>`; });
 }
-$('lightbox').addEventListener('click', () => { const lb = $('lightbox'); lb.classList.remove('show'); lb.innerHTML = ''; });
+$('lightbox').addEventListener('click', uiBack);
 
 // ── 라운드(스코어) 렌더 ─────────────────────────────────────
 function renderRoundStats() {
@@ -585,9 +636,14 @@ function renderGraph() {
 
 // ── 탭 전환 ─────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  activeView = t.dataset.view;
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-  render();
+  const view = t.dataset.view;
+  if (view === activeView) return;
+  if (view === 'rounds') { openLayer('rounds'); }
+  else {
+    const top = uiStack[uiStack.length - 1];
+    if (top && top.tag === 'rounds') uiBack();
+    else { activeView = 'notes'; syncTabs(); render(); }
+  }
 }));
 
 // ── 필터/검색 ───────────────────────────────────────────────
@@ -598,19 +654,17 @@ $('searchInput').addEventListener('input', e => { searchTerm = e.target.value; r
 document.body.addEventListener('click', e => {
   const nb = e.target.closest('.note-menu[data-note]');
   const rb = e.target.closest('.note-menu[data-round]');
-  if (nb) { sheetTarget = { type: 'note', id: nb.dataset.note }; $('sheetBackdrop').classList.add('show'); }
-  else if (rb) { sheetTarget = { type: 'round', id: rb.dataset.round }; $('sheetBackdrop').classList.add('show'); }
+  if (nb) { sheetTarget = { type: 'note', id: nb.dataset.note }; openLayer('sheet'); }
+  else if (rb) { sheetTarget = { type: 'round', id: rb.dataset.round }; openLayer('sheet'); }
 });
-$('sheetCancel').addEventListener('click', () => $('sheetBackdrop').classList.remove('show'));
-$('sheetBackdrop').addEventListener('click', e => { if (e.target === $('sheetBackdrop')) $('sheetBackdrop').classList.remove('show'); });
+$('sheetCancel').addEventListener('click', uiBack);
+$('sheetBackdrop').addEventListener('click', e => { if (e.target === $('sheetBackdrop')) uiBack(); });
 $('sheetEdit').addEventListener('click', () => {
-  $('sheetBackdrop').classList.remove('show');
   if (!sheetTarget) return;
-  if (sheetTarget.type === 'note') { const n = notes.find(x => x.id === sheetTarget.id); if (n) openModal(n); }
-  else { const r = rounds.find(x => x.id === sheetTarget.id); if (r) openRoundModal(r); }
+  if (sheetTarget.type === 'note') { const n = notes.find(x => x.id === sheetTarget.id); if (n) swapLayer('noteModal', () => prepNoteModal(n)); }
+  else { const r = rounds.find(x => x.id === sheetTarget.id); if (r) swapLayer('roundModal', () => prepRoundModal(r)); }
 });
 $('sheetDelete').addEventListener('click', () => {
-  $('sheetBackdrop').classList.remove('show');
   if (!sheetTarget) return;
   if (sheetTarget.type === 'note') {
     const n = notes.find(x => x.id === sheetTarget.id);
@@ -621,7 +675,7 @@ $('sheetDelete').addEventListener('click', () => {
     if (r) { r.deleted = true; r.updated = Date.now(); }
     toast('라운드를 삭제했어요');
   }
-  commit();
+  commit(); uiBack();
 });
 
 // ── FAB ─────────────────────────────────────────────────────
@@ -633,7 +687,7 @@ function renderCatPicker() {
 }
 $('catPicker').addEventListener('click', e => { const b = e.target.closest('.cat-opt'); if (b) { selectedCat = b.dataset.cat; renderCatPicker(); } });
 
-function openModal(note) {
+function prepNoteModal(note) {
   editingId = note ? note.id : null;
   selectedCat = note ? note.cat : (activeFilter !== 'all' ? activeFilter : 'driver');
   $('modalTitle').textContent = note ? '노트 수정' : '새 노트';
@@ -643,9 +697,8 @@ function openModal(note) {
   $('fTags').value = note ? (note.tags||[]).join(', ') : '';
   modalMedia = note && note.media ? note.media.map(m => ({ ...m, isNew: false, removed: false })) : [];
   renderCatPicker(); renderModalMedia();
-  $('modalBackdrop').classList.add('show');
-  setTimeout(() => $('fTitle').focus(), 100);
 }
+function openModal(note) { openLayer('noteModal', () => prepNoteModal(note)); }
 function closeModal() { $('modalBackdrop').classList.remove('show'); editingId = null; modalMedia = []; }
 
 async function renderModalMedia() {
@@ -663,14 +716,23 @@ async function renderModalMedia() {
     tile.appendChild(rmBtn);
   }
 }
-$('mediaInput').addEventListener('change', e => {
-  Array.from(e.target.files).forEach(f => modalMedia.push({ id: uid(), type: f.type.startsWith('video')?'video':'image', mime: f.type, name: f.name, isNew: true, blob: f, removed: false }));
-  e.target.value = ''; renderModalMedia();
+$('mediaInput').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  if (files.length) toast('사진 처리 중…');
+  for (const f of files) {
+    const isVid = f.type.startsWith('video');
+    let blob = f;
+    if (!isVid) blob = await compressImage(f);         // 사진 자동 압축
+    else if (f.size > 60 * 1024 * 1024) toast('동영상 용량이 커요(압축 미지원)');
+    modalMedia.push({ id: uid(), type: isVid ? 'video' : 'image', mime: blob.type || f.type, name: f.name, isNew: true, blob, removed: false });
+  }
+  renderModalMedia();
 });
 $('mediaPreview').addEventListener('click', e => { const b = e.target.closest('.media-rm'); if (b) { const m = modalMedia.find(x => x.id === b.dataset.rm); if (m) m.removed = true; renderModalMedia(); } });
 
-$('cancelBtn').addEventListener('click', closeModal);
-$('modalBackdrop').addEventListener('click', e => { if (e.target === $('modalBackdrop')) closeModal(); });
+$('cancelBtn').addEventListener('click', uiBack);
+$('modalBackdrop').addEventListener('click', e => { if (e.target === $('modalBackdrop')) uiBack(); });
 
 $('saveBtn').addEventListener('click', async () => {
   const title = $('fTitle').value.trim(), body = $('fBody').value.trim();
@@ -695,11 +757,11 @@ $('saveBtn').addEventListener('click', async () => {
   const media = kept.map(m => ({ id: m.id, type: m.type, mime: m.mime, name: m.name }));
   if (editingId) { const n = notes.find(x => x.id === editingId); Object.assign(n, { cat: selectedCat, date, title, body, tags, media, updated: Date.now(), deleted: false }); toast('수정했어요 ✓'); }
   else { const t = Date.now(); notes.push({ id: noteId, cat: selectedCat, date, title, body, tags, media, created: t, updated: t }); toast('노트를 저장했어요 ⛳'); }
-  commit(); closeModal();
+  commit(); uiBack();
 });
 
 // ── 라운드 모달 ─────────────────────────────────────────────
-function openRoundModal(round) {
+function prepRoundModal(round) {
   roundEditingId = round ? round.id : null;
   $('roundModalTitle').textContent = round ? '라운드 수정' : '새 라운드';
   $('rDate').value = round ? round.date : todayStr();
@@ -708,12 +770,11 @@ function openRoundModal(round) {
   $('rPar').value = round && round.par ? round.par : '';
   $('rPutts').value = round && round.putts ? round.putts : '';
   $('rMemo').value = round ? (round.memo || '') : '';
-  $('roundBackdrop').classList.add('show');
-  setTimeout(() => $('rScore').focus(), 100);
 }
+function openRoundModal(round) { openLayer('roundModal', () => prepRoundModal(round)); }
 function closeRoundModal() { $('roundBackdrop').classList.remove('show'); roundEditingId = null; }
-$('rCancelBtn').addEventListener('click', closeRoundModal);
-$('roundBackdrop').addEventListener('click', e => { if (e.target === $('roundBackdrop')) closeRoundModal(); });
+$('rCancelBtn').addEventListener('click', uiBack);
+$('roundBackdrop').addEventListener('click', e => { if (e.target === $('roundBackdrop')) uiBack(); });
 $('rSaveBtn').addEventListener('click', () => {
   const score = parseInt($('rScore').value, 10);
   if (isNaN(score)) { toast('총 타수를 입력해주세요'); return; }
@@ -730,7 +791,7 @@ $('rSaveBtn').addEventListener('click', () => {
   };
   if (roundEditingId) { const r = rounds.find(x => x.id === roundEditingId); Object.assign(r, data); toast('수정했어요 ✓'); }
   else { rounds.push({ id: uid(), created: Date.now(), ...data }); toast('라운드를 저장했어요 ⛳'); }
-  commit(); closeRoundModal();
+  commit(); uiBack();
 });
 
 // ── 백업 ────────────────────────────────────────────────────
@@ -840,8 +901,8 @@ function genCode() {
 }
 
 // ── 동기화 모달 ─────────────────────────────────────────────
-function openSync() { renderSyncBody(); $('syncBackdrop').classList.add('show'); }
-function closeSync() { $('syncBackdrop').classList.remove('show'); }
+function openSync() { openLayer('syncModal', renderSyncBody); }
+function closeSync() { uiBack(); }
 function renderSyncBody() {
   const body = $('syncBody');
   if (syncCode) {
@@ -885,6 +946,29 @@ async function copyText(t) {
 $('syncBtn').addEventListener('click', openSync);
 $('syncBtn2').addEventListener('click', openSync);
 $('syncBackdrop').addEventListener('click', e => { if (e.target === $('syncBackdrop')) closeSync(); });
+
+// ── 사진 자동 압축 (최대 1280px, ~0.5MB) ───────────────────
+function canvasToBlob(canvas, type, q) { return new Promise(res => canvas.toBlob(res, type, q)); }
+async function compressImage(file, maxDim = 1280, targetBytes = 520000) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  try {
+    let bitmap;
+    try { bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch { bitmap = await createImageBitmap(file); }
+    let w = bitmap.width, h = bitmap.height;
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+    let q = 0.72, blob = await canvasToBlob(canvas, 'image/jpeg', q);
+    while (blob && blob.size > targetBytes && q > 0.4) { q -= 0.12; blob = await canvasToBlob(canvas, 'image/jpeg', q); }
+    if (blob && blob.size < file.size) return blob;   // 압축 효과 있을 때만 사용
+    return file;
+  } catch { return file; }
+}
 
 // ── 유틸 ────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
