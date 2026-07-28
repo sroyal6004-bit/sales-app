@@ -458,9 +458,24 @@ async function mediaDeleteLocal(id) {
 }
 // 로컬 + 클라우드 완전 삭제
 async function deleteMediaEverywhere(id) {
+  forgetMediaUrl(id);
   await mediaDeleteLocal(id);
   uploaded.delete(id); localStorage.setItem(UP_KEY, JSON.stringify([...uploaded]));
   if (fb && fb.storage && syncCode) { try { await fb.st.deleteObject(fb.st.ref(fb.storage, `spaces/${syncCode}/${id}`)); } catch {} }
+}
+
+// 한 번 만든 이미지 URL을 메모리에 캐시 → 재렌더 시 즉시 표시(다시 안 읽음)
+const mediaUrlCache = new Map();
+async function resolveMediaUrl(m) {
+  if (mediaUrlCache.has(m.id)) return mediaUrlCache.get(m.id);
+  const url = await mediaSrc(m).catch(() => null);
+  if (url) mediaUrlCache.set(m.id, url);
+  return url;
+}
+function forgetMediaUrl(id) {
+  const u = mediaUrlCache.get(id);
+  if (u && u.startsWith('blob:')) { try { URL.revokeObjectURL(u); } catch {} }
+  mediaUrlCache.delete(id);
 }
 
 // 미디어 표시용 src 얻기: 로컬 우선 → 없으면 클라우드
@@ -548,21 +563,29 @@ function renderNotes() {
   hydrateCardMedia();
 }
 
-async function hydrateCardMedia() {
-  for (const wrap of document.querySelectorAll('.note-media')) {
+function fillTile(tile, m, url) {
+  if (m.type === 'video') { tile.innerHTML = `<video src="${url}" controls preload="metadata"></video>`; }
+  else { tile.innerHTML = `<img src="${url}" loading="lazy"/>`; tile.classList.add('clickable'); tile.onclick = () => openLightbox(url, 'image'); }
+}
+// 캐시된 것은 즉시 표시, 나머지는 병렬 로딩 (한 장씩 기다리지 않음)
+function hydrateCardMedia() {
+  document.querySelectorAll('.note-media').forEach(wrap => {
     const n = notes.find(x => x.id === wrap.dataset.media);
-    if (!n || !n.media) continue;
+    if (!n || !n.media) return;
     wrap.innerHTML = '';
-    for (const m of n.media) {
+    n.media.forEach(m => {
       const tile = document.createElement('div');
-      tile.className = 'media-tile'; tile.innerHTML = '<span class="media-spin">⏳</span>';
+      tile.className = 'media-tile';
       wrap.appendChild(tile);
-      const url = await mediaSrc(m).catch(() => null);
-      if (!url) { tile.innerHTML = `<span class="media-missing">${m.type==='video'?'🎬':'🖼️'}<br/>불러올 수 없음</span>`; continue; }
-      if (m.type === 'video') { tile.innerHTML = `<video src="${url}" controls preload="metadata"></video>`; }
-      else { tile.innerHTML = `<img src="${url}"/>`; tile.classList.add('clickable'); tile.addEventListener('click', () => openLightbox(url, 'image')); }
-    }
-  }
+      const cached = mediaUrlCache.get(m.id);
+      if (cached) { fillTile(tile, m, cached); return; }        // 이미 읽은 사진 → 즉시
+      tile.innerHTML = '<span class="media-spin">⏳</span>';
+      resolveMediaUrl(m).then(url => {
+        if (!url) { tile.innerHTML = `<span class="media-missing">${m.type==='video'?'🎬':'🖼️'}<br/>불러올 수 없음</span>`; return; }
+        fillTile(tile, m, url);
+      });
+    });
+  });
 }
 function openLightbox(url, type) {
   openLayer('lightbox', () => { $('lightbox').innerHTML = type === 'video' ? `<video src="${url}" controls autoplay></video>` : `<img src="${url}"/>`; });
