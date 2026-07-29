@@ -1,4 +1,4 @@
-const CACHE = 'sales-pwa-v1';
+const CACHE = 'contracts-pwa-v1';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -22,7 +22,6 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.url.includes('api.anthropic.com')) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
   );

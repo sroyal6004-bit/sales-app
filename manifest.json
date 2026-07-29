@@ -1,7 +1,7 @@
 {
-  "name": "매출 합산 앱",
-  "short_name": "매출집계",
-  "description": "사진으로 월별 매출을 자동 합산하는 앱",
+  "name": "계약서 기록 관리",
+  "short_name": "계약기록",
+  "description": "계약을 기록하고 상태·만료일·금액을 한눈에 관리하는 앱",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0a0f",
