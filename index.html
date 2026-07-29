@@ -347,6 +347,7 @@ const NOTE_KEY = 'golf-notes-v1';
 const ROUND_KEY = 'golf-rounds-v1';
 const CODE_KEY = 'golf-sync-code';
 const UP_KEY = 'golf-uploaded';
+const MAX_CLOUD_BYTES = 500 * 1024 * 1024;   // Storage 규칙과 동일하게 맞춤 (500MB)
 
 // ── 상태 ────────────────────────────────────────────────────
 let notes = loadArr(NOTE_KEY);
@@ -820,7 +821,7 @@ $('mediaInput').addEventListener('change', async e => {
     const isVid = f.type.startsWith('video');
     let blob = f;
     if (!isVid) blob = await compressImage(f);         // 사진 자동 압축
-    else if (f.size > 60 * 1024 * 1024) toast('동영상 용량이 커요(압축 미지원)');
+    else if (f.size > MAX_CLOUD_BYTES) toast('동영상이 너무 커서 이 기기에만 저장돼요');
     modalMedia.push({ id: uid(), type: isVid ? 'video' : 'image', mime: blob.type || f.type, name: f.name, isNew: true, blob, removed: false });
   }
   renderModalMedia();
@@ -970,10 +971,22 @@ async function pushToCloud() {
   try { await fb.fs.setDoc(fb.ref, { notes, rounds, updatedAt: Date.now() }); }
   catch (e) { console.warn('push failed', e); setSyncStatus('error'); }
 }
-async function uploadMedia(id, blob, mime) {
-  if (!fb || !fb.storage || !syncCode) return false;
-  try { await fb.st.uploadBytes(fb.st.ref(fb.storage, `spaces/${syncCode}/${id}`), blob, { contentType: mime || blob.type }); markUploaded(id); return true; }
-  catch (e) { console.warn('upload', e); return false; }
+// 큰 동영상도 안정적으로 올리도록 재개형(resumable) 업로드 + 진행률 표시
+function uploadMedia(id, blob, mime) {
+  return new Promise(resolve => {
+    if (!fb || !fb.storage || !syncCode) return resolve(false);
+    if (blob.size > MAX_CLOUD_BYTES) { toast('파일이 너무 커서 이 기기에만 저장돼요'); return resolve(false); }
+    let task;
+    try { task = fb.st.uploadBytesResumable(fb.st.ref(fb.storage, `spaces/${syncCode}/${id}`), blob, { contentType: mime || blob.type }); }
+    catch (e) { console.warn('upload init', e); return resolve(false); }
+    const big = blob.size > 5 * 1024 * 1024;
+    let lastPct = -1;
+    task.on('state_changed',
+      s => { if (big) { const pct = Math.round(s.bytesTransferred / s.totalBytes * 100); if (pct >= lastPct + 5) { lastPct = pct; toast(`동영상 업로드 ${pct}%`); } } },
+      err => { console.warn('upload err', err); if (big) toast('업로드 실패 — 이 기기에만 저장됨'); resolve(false); },
+      () => { markUploaded(id); if (big) toast('동영상 업로드 완료 ☁️'); resolve(true); }
+    );
+  });
 }
 // 오프라인에서 첨부했다가 나중에 켠 경우 등, 아직 안 올라간 미디어 업로드
 async function syncPendingMedia() {
