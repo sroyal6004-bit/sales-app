@@ -579,7 +579,11 @@ function fillTile(tile, m, url, arr, idx) {
 function loadTile(tile) {
   const m = tile._m;
   resolveMediaUrl(m).then(url => {
-    if (!url) { tile.innerHTML = `<span class="media-missing">${m.type==='video'?'🎬':'🖼️'}<br/>불러올 수 없음</span>`; return; }
+    if (!url) {
+      const waiting = syncCode && syncStatus !== 'on';   // 아직 연결 중이면 곧 다시 시도됨
+      tile.innerHTML = `<span class="media-missing">${m.type==='video'?'🎬':'🖼️'}<br/>${waiting ? '동기화 대기…' : '불러올 수 없음'}</span>`;
+      return;
+    }
     fillTile(tile, m, url, tile._arr, tile._idx);
   });
 }
@@ -958,6 +962,7 @@ async function connectFirebase() {
     setSyncStatus('on');
     await pushToCloud();
     syncPendingMedia();
+    if (activeView === 'notes') hydrateCardMedia();   // 연결 완료 후 클라우드 미디어 다시 로드
   } catch (e) { console.warn('firebase connect failed', e); setSyncStatus('error'); }
 }
 async function pushToCloud() {
