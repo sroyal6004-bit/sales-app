@@ -1,11 +1,11 @@
 {
-  "name": "매출 합산 앱",
-  "short_name": "매출집계",
-  "description": "사진으로 월별 매출을 자동 합산하는 앱",
+  "name": "직원 휴무 스케쥴",
+  "short_name": "휴무스케쥴",
+  "description": "팀별 직원 휴무를 신청·승인·관리하고 중요직책 중복 휴무를 방지하는 앱",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#f4a94a",
+  "background_color": "#0f1524",
+  "theme_color": "#5b8def",
   "orientation": "portrait",
   "icons": [
     {
