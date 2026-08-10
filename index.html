@@ -457,7 +457,20 @@ function setSyncDot(s){ const d=document.getElementById('syncDot'); d.className=
 
 /* ═══════════ 뒤로가기 레이어 제어 ═══════════ */
 const uiStack=[];
+let navPushed=false;   // 홈(스케쥴)이 아닌 탭에 있을 때 쌓은 히스토리 항목 존재 여부
 function pushHist(tag){ try{ history.pushState({t:tag},''); return true; }catch{ return false; } }
+// 탭 이동: 홈이 아닌 탭으로 가면 히스토리 1개 쌓아 두고, 뒤로가기 시 홈으로 돌아오게 함
+function goTab(newTab){
+  if(newTab===tab){ window.scrollTo(0,0); return; }
+  if(newTab==='schedule'){
+    // 홈으로: 쌓아둔 항목이 있으면 히스토리 back으로 소비(popstate가 렌더)
+    if(navPushed){ history.back(); return; }
+    tab='schedule'; window.scrollTo(0,0); render();
+  } else {
+    if(tab==='schedule' && !navPushed) navPushed=pushHist('tab');
+    tab=newTab; window.scrollTo(0,0); render();
+  }
+}
 function openSheet(html){
   document.getElementById('sheet').innerHTML = '<div class="sheet-grip"></div>'+html;
   document.getElementById('sheetBg').classList.add('show');
@@ -469,7 +482,13 @@ function closeSheet(){
   else doCloseSheet();
 }
 function doCloseSheet(){ document.getElementById('sheetBg').classList.remove('show'); }
-window.addEventListener('popstate', ()=>{ if(!uiStack.length) return; const t=uiStack.pop(); if(t.tag==='sheet') doCloseSheet(); });
+window.addEventListener('popstate', ()=>{
+  // 1) 시트/모달이 열려 있으면 그것부터 닫기
+  if(uiStack.length){ const t=uiStack.pop(); if(t.tag==='sheet') doCloseSheet(); return; }
+  // 2) 홈이 아니면 홈(스케쥴)으로 이동 (앱 종료 대신)
+  if(navPushed){ navPushed=false; if(tab!=='schedule'){ tab='schedule'; window.scrollTo(0,0); render(); } return; }
+  // 3) 홈에서 아무 레이어도 없으면 브라우저 기본 동작(앱 종료)
+});
 document.getElementById('sheetBg').addEventListener('click', e=>{ if(e.target.id==='sheetBg') closeSheet(); });
 
 /* ═══════════ 토스트 ═══════════ */
@@ -948,8 +967,8 @@ function importJSON(file){
 }
 
 /* ═══════════ 네비게이션 / FAB ═══════════ */
-document.querySelectorAll('#nav button').forEach(b=> b.onclick=()=>{ tab=b.dataset.tab; window.scrollTo(0,0); render(); });
-document.getElementById('fab').onclick=()=>{ tab='request'; render(); };
+document.querySelectorAll('#nav button').forEach(b=> b.onclick=()=> goTab(b.dataset.tab));
+document.getElementById('fab').onclick=()=> goTab('request');
 
 /* ═══════════ 서비스워커 자동 업데이트 ═══════════ */
 if('serviceWorker' in navigator){
