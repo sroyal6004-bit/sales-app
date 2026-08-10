@@ -259,8 +259,21 @@
 // ── 상수 ──────────────────────────────────────────────────
 const LEAVE_TYPES = ['연차', '오전반차', '오후반차', '병가', '특별휴가', '기타'];
 const DOW = ['일','월','화','수','목','금','토'];
-const LS_STATE = 'leaveapp_state_v1';   // 동기화 대상 데이터
+const LS_STATE = 'leaveapp_state_v2';   // 동기화 대상 데이터 (v2: 고정 시드 ID)
 const LS_LOCAL = 'leaveapp_local_v1';   // 이 기기 전용(관리자모드/동기화설정)
+
+// ── Firebase (앱에 내장 · 자동 연결) ──────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCGLmFBIzqaaTpPKmOyLp714V64kCNJEGk",
+  authDomain: "off-duty-app.firebaseapp.com",
+  projectId: "off-duty-app",
+  storageBucket: "off-duty-app.firebasestorage.app",
+  messagingSenderId: "394880287690",
+  appId: "1:394880287690:web:ac564f0d7c9f4b0e158533"
+};
+// 병원 공용 기본 연결 코드(모든 기기 동일 → 자동 공유). 그룹 분리 시 설정에서 변경 가능.
+const DEFAULT_SPACE_CODE = 'off-duty-clinic-main';
+function spaceCode(){ return ((local && local.spaceCode || '').trim()) || DEFAULT_SPACE_CODE; }
 
 // ── 상태 ──────────────────────────────────────────────────
 let state = null;   // {employees:[], leaves:[], settings:{}, settingsUpdated}
@@ -270,11 +283,14 @@ let schedMode = 'day';           // day | week | month
 let cursor = todayStr();         // 'YYYY-MM-DD'
 
 // ── 시드 데이터 (설정에서 수정 가능) ──────────────────────
+// 주의: 모든 기기가 자동 동기화되므로 시드는 '고정 ID + 고정 updated(1)'로 생성한다.
+// → 여러 기기가 각자 시드를 만들어도 병합 시 같은 id로 합쳐져 중복되지 않고,
+//   실제 수정(updated=현재시각)은 항상 시드보다 최신이라 시드가 편집을 덮어쓰지 않는다.
+let _seedN = 0;
 function seedState() {
-  const now = Date.now();
-  const T = { 진료: '진료팀', 간호: '간호팀', 원무: '원무팀', 검사: '검사팀' };
+  _seedN = 0;
   const mk = (name, team, role, important) => ({
-    id: uid(), name, team, role, important: !!important, order: 0, updated: now, deleted: false
+    id: 'e' + String(++_seedN).padStart(2,'0'), name, team, role, important: !!important, order: 0, updated: 1, deleted: false
   });
   const employees = [
     mk('김원장','진료팀','원장',true),
@@ -307,7 +323,7 @@ function seedState() {
       dailyMaxPerTeam: 0,       // 팀별 하루 최대 휴무(0=제한없음)
       adminPin: '',
     },
-    settingsUpdated: now,
+    settingsUpdated: 1,
   };
 }
 
@@ -408,13 +424,13 @@ function mergeRemote(remote){
 const cloud = { db:null, connected:false, unsub:null, docRef:null };
 async function connectCloud(){
   cloud.connected=false; if(cloud.unsub){ try{cloud.unsub();}catch{} cloud.unsub=null; }
-  const fb = local.fb, code = (local.spaceCode||'').trim();
+  const code = spaceCode();
   setSyncDot('off');
-  if(!fb || !fb.apiKey || !fb.projectId || !fb.appId || code.length<10) return;
+  if(code.length<10) return;
   try {
     const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
     const fsMod  = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const app = appMod.initializeApp({ apiKey:fb.apiKey, projectId:fb.projectId, appId:fb.appId }, 'leaveapp-'+code);
+    const app = appMod.initializeApp(FIREBASE_CONFIG, 'leaveapp-'+code);
     cloud.db = fsMod.getFirestore(app);
     cloud.docRef = fsMod.doc(cloud.db, 'spaces', code);
     cloud._fs = fsMod;
@@ -773,16 +789,17 @@ function renderSettings(){
     </div>`;
   }
 
-  // 동기화 (모두 사용)
-  const fb=local.fb||{};
-  h += `<div class="card"><h3>기기 간 동기화 (선택)</h3>
-    <div class="desc">직원 폰과 관리자 기기가 같은 데이터를 보려면 연결하세요. Firebase 무료 프로젝트가 필요합니다. (하단 안내 참고)</div>
-    <label class="fld">Firebase apiKey</label><input class="in" id="fbKey" value="${esc(fb.apiKey||'')}" placeholder="AIza..."/>
-    <label class="fld">Firebase projectId</label><input class="in" id="fbProj" value="${esc(fb.projectId||'')}" placeholder="my-clinic-123"/>
-    <label class="fld">Firebase appId</label><input class="in" id="fbApp" value="${esc(fb.appId||'')}" placeholder="1:...:web:..."/>
-    <label class="fld">연결 코드 (10자 이상 · 모든 기기 동일하게)</label><input class="in" id="fbCode" value="${esc(local.spaceCode||'')}" placeholder="ourclinic-2026-secret"/>
-    <button class="btn btn-primary" id="saveSync" style="margin-top:14px">${cloud.connected?'재연결':'연결하기'}</button>
-    <div class="ts" style="margin-top:8px;font-size:11px;color:var(--muted)">상태: ${cloud.connected?'☁️ 연결됨':'로컬 저장(미연결)'}</div>
+  // 동기화 (자동 연결)
+  h += `<div class="card"><h3>기기 간 동기화</h3>
+    <div class="desc">모든 기기가 병원 공용 클라우드에 <b>자동 연결</b>됩니다. 직원이 폰에서 신청하고 관리자가 승인하면 실시간으로 함께 반영돼요. 별도 설정은 필요 없습니다.</div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:11px">
+      <span class="sync-dot ${cloud.connected?'on':''}"></span>
+      <span style="font-size:13px;font-weight:700;color:${cloud.connected?'var(--green)':'var(--muted)'}">${cloud.connected?'☁️ 연결됨 · 실시간 동기화 중':'연결 시도 중… (잠시 후 자동 연결)'}</span>
+    </div>
+    <label class="fld">연결 코드 (그룹) · 같은 코드끼리 데이터 공유</label>
+    <input class="in" id="fbCode" value="${esc(spaceCode())}" placeholder="${DEFAULT_SPACE_CODE}"/>
+    <div class="ts" style="font-size:11px;color:var(--muted);margin-top:6px">보통 그대로 두면 됩니다. 다른 병원/테스트와 데이터를 분리할 때만 10자 이상으로 바꿔 모든 기기에 동일하게 입력하세요.</div>
+    <button class="btn btn-ghost" id="saveSync" style="margin-top:12px">코드 변경 후 재연결</button>
   </div>`;
 
   // 백업
@@ -795,12 +812,11 @@ function renderSettings(){
       <button class="btn btn-danger" id="resetBtn">전체 초기화</button></div>`;
   }
 
-  h += `<div class="card"><h3>📖 Firebase 연결 방법</h3><div class="desc" style="line-height:1.7">
-    1. <b>console.firebase.google.com</b> 접속 → '프로젝트 만들기'<br/>
-    2. 왼쪽 '빌드 → Firestore Database' → '데이터베이스 만들기'(테스트 모드)<br/>
-    3. 프로젝트 설정(⚙️) → '내 앱' → 웹(&lt;/&gt;) 추가 → apiKey·projectId·appId 복사<br/>
-    4. 위 칸에 붙여넣고, 모든 기기에 <b>같은 연결 코드</b> 입력 → 연결하기<br/>
-    5. 보안규칙: <code style="font-size:10px">match /spaces/{id} { allow read,write: if id.size()>=10; }</code>
+  h += `<div class="card"><h3>📖 동기화 안내</h3><div class="desc" style="line-height:1.7">
+    · 이 앱은 병원 공용 클라우드에 <b>자동으로 연결</b>됩니다. 링크를 연 모든 기기가 같은 데이터를 봅니다.<br/>
+    · 직원은 각자 폰에서 휴무를 신청하고, 관리자는 승인만 하면 됩니다.<br/>
+    · 데이터 보호를 위해 Firestore <b>보안 규칙</b>을 아래처럼 설정하는 것을 권장합니다:<br/>
+    <code style="font-size:10px;display:block;margin-top:6px;padding:8px;background:var(--bg3);border-radius:8px">rules_version = '2';<br/>service cloud.firestore {<br/>&nbsp;&nbsp;match /databases/{db}/documents {<br/>&nbsp;&nbsp;&nbsp;&nbsp;match /spaces/{id} { allow read, write: if id.size() >= 10; }<br/>&nbsp;&nbsp;}<br/>}</code>
   </div></div>`;
   return h;
 }
@@ -836,12 +852,11 @@ function bindSettings(){
     };
   }
 
-  // 동기화 저장
+  // 동기화 코드 변경 후 재연결
   const ss=document.getElementById('saveSync'); if(ss) ss.onclick=async()=>{
-    local.fb={ apiKey:document.getElementById('fbKey').value.trim(), projectId:document.getElementById('fbProj').value.trim(), appId:document.getElementById('fbApp').value.trim() };
-    local.spaceCode=document.getElementById('fbCode').value.trim();
-    saveLocal();
-    if(!local.fb.apiKey || local.spaceCode.length<10){ toast('설정을 채우고 코드는 10자 이상', true); return; }
+    const code=document.getElementById('fbCode').value.trim();
+    if(code && code.length<10){ toast('연결 코드는 10자 이상이어야 해요', true); return; }
+    local.spaceCode=code; saveLocal();
     toast('연결 시도 중...'); await connectCloud(); render();
   };
 
