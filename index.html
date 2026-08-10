@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="휴무스케쥴"/>
   <meta name="theme-color" content="#5b8def"/>
+  <meta name="app-build" content="__BUILD_ID__"/>
   <title>직원 휴무 스케쥴</title>
   <link rel="manifest" href="./manifest.json"/>
   <style>
@@ -970,14 +971,52 @@ function importJSON(file){
 document.querySelectorAll('#nav button').forEach(b=> b.onclick=()=> goTab(b.dataset.tab));
 document.getElementById('fab').onclick=()=> goTab('request');
 
-/* ═══════════ 서비스워커 자동 업데이트 ═══════════ */
-if('serviceWorker' in navigator){
-  if(navigator.serviceWorker.controller){
-    let reloaded=false;
-    navigator.serviceWorker.addEventListener('controllerchange', ()=>{ if(reloaded)return; reloaded=true; location.reload(); });
+/* ═══════════ 자동 업데이트 (새로고침 없이 최신 버전 반영) ═══════════ */
+(function(){
+  const APP_BUILD = (document.querySelector('meta[name="app-build"]')||{}).content || '';
+  // 배포 시 sed가 '__BUILD_ID__'를 전역 치환하므로, 미배포 감지용 센티넬은 치환되지 않게 문자열을 쪼갬
+  const UNSTAMPED = '__BUILD' + '_ID__';
+  let reloaded=false, pendingReload=false;
+  // 입력 중이거나 시트가 열려 있으면 지금 리로드하지 않고 대기(작업 손실 방지)
+  function isBusy(){
+    if(uiStack.length) return true;
+    const el=document.activeElement;
+    return !!(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
   }
-  window.addEventListener('load', ()=> navigator.serviceWorker.register('./sw.js').then(r=>r.update()).catch(()=>{}));
-}
+  function doReload(){ if(reloaded) return; reloaded=true; location.reload(); }
+  function safeReload(){ if(isBusy()){ pendingReload=true; } else doReload(); }
+  function flushPending(){ if(pendingReload) safeReload(); }
+
+  // 1) 새 배포 감지: 자기 자신(index.html)의 빌드 ID를 대조 (HTML만 바뀌어도 감지됨)
+  async function checkVersion(){
+    if(!APP_BUILD || APP_BUILD===UNSTAMPED) return; // 로컬/미배포 상태면 건너뜀
+    try{
+      const res = await fetch('./index.html?_b=' + Date.now(), { cache:'no-store' });
+      if(!res.ok) return;
+      const txt = await res.text();
+      const m = txt.match(/name=["']app-build["']\s+content=["']([^"']+)["']/);
+      if(m && m[1] && m[1] !== APP_BUILD) safeReload();
+    }catch(e){}
+  }
+
+  // 2) 서비스워커: 새 sw.js 활성화 시 자동 반영 (설치형 PWA 포함)
+  if('serviceWorker' in navigator){
+    const hadController = !!navigator.serviceWorker.controller;
+    if(hadController) navigator.serviceWorker.addEventListener('controllerchange', safeReload);
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      reg.update().catch(()=>{});
+      setInterval(()=> reg.update().catch(()=>{}), 60000);
+    }).catch(()=>{});
+  }
+
+  // 주기적 + 화면 복귀/포커스/온라인 시 즉시 확인, 대기 중이던 업데이트 반영
+  setInterval(checkVersion, 45000);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ checkVersion(); flushPending(); } });
+  window.addEventListener('focus', ()=>{ checkVersion(); flushPending(); });
+  window.addEventListener('online', checkVersion);
+  document.addEventListener('focusout', ()=> setTimeout(flushPending, 300));
+  setTimeout(checkVersion, 3000);
+})();
 
 /* ═══════════ 시작 ═══════════ */
 loadLocal();

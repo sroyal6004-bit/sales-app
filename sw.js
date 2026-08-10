@@ -1,6 +1,6 @@
 // 휴무 스케쥴 PWA 서비스워커
 // 규칙: HTML 문서는 네트워크 우선(새 버전 즉시 반영), 정적 파일은 캐시 우선.
-const CACHE = 'leave-pwa-v1';
+const CACHE = 'leave-pwa-__BUILD_ID__';
 const ASSETS = [
   './index.html',
   './manifest.json',

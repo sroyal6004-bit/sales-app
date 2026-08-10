@@ -25,6 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 배포마다 고유 빌드 ID를 심어, 열려 있는 화면이 새 버전을 감지해 자동 반영하게 함
+      - name: Stamp build id
+        run: |
+          BUILD_ID="${GITHUB_SHA}-$(date +%s)"
+          sed -i "s/__BUILD_ID__/${BUILD_ID}/g" index.html sw.js
+          echo "Stamped build id: ${BUILD_ID}"
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
