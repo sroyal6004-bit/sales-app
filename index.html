@@ -260,7 +260,7 @@
 // ── 상수 ──────────────────────────────────────────────────
 const LEAVE_TYPES = ['연차', '오전반차', '오후반차', '병가', '특별휴가', '기타'];
 const DOW = ['일','월','화','수','목','금','토'];
-const LS_STATE = 'leaveapp_state_v2';   // 동기화 대상 데이터 (v2: 고정 시드 ID)
+const LS_STATE = 'leaveapp_state_v3';   // 동기화 대상 데이터 (v3: 새 팀/직급·2단계 승인)
 const LS_LOCAL = 'leaveapp_local_v1';   // 이 기기 전용(관리자모드/동기화설정)
 
 // ── Firebase (앱에 내장 · 자동 연결) ──────────────────────
@@ -273,7 +273,7 @@ const FIREBASE_CONFIG = {
   appId: "1:394880287690:web:ac564f0d7c9f4b0e158533"
 };
 // 병원 공용 기본 연결 코드(모든 기기 동일 → 자동 공유). 그룹 분리 시 설정에서 변경 가능.
-const DEFAULT_SPACE_CODE = 'off-duty-clinic-main';
+const DEFAULT_SPACE_CODE = 'off-duty-clinic-v2';
 function spaceCode(){ return ((local && local.spaceCode || '').trim()) || DEFAULT_SPACE_CODE; }
 
 // ── 상태 ──────────────────────────────────────────────────
@@ -290,39 +290,41 @@ let cursor = todayStr();         // 'YYYY-MM-DD'
 let _seedN = 0;
 function seedState() {
   _seedN = 0;
-  const mk = (name, team, role, important) => ({
-    id: 'e' + String(++_seedN).padStart(2,'0'), name, team, role, important: !!important, order: 0, updated: 1, deleted: false
+  // rank: '' 일반 | 'lead' 팀장(1차 승인) | 'director' 행정원장(최종 승인)
+  const mk = (name, team, role, important, rank) => ({
+    id: 'e' + String(++_seedN).padStart(2,'0'), name, team, role: role||'', important: !!important, rank: rank||'', order: 0, updated: 1, deleted: false
   });
   const employees = [
-    mk('김원장','진료팀','원장',true),
-    mk('이진료','진료팀','부원장',true),
-    mk('박진료','진료팀','진료의',false),
-    mk('최진료','진료팀','진료의',false),
-    mk('정수간','간호팀','수간호사',true),
-    mk('한간호','간호팀','간호사',false),
-    mk('오간호','간호팀','간호사',false),
-    mk('서간호','간호팀','간호사',false),
-    mk('윤간호','간호팀','간호조무사',false),
-    mk('임간호','간호팀','간호조무사',false),
-    mk('강원무','원무팀','원무팀장',true),
-    mk('조원무','원무팀','원무',false),
-    mk('신원무','원무팀','원무',false),
-    mk('배원무','원무팀','수납',false),
-    mk('노검사','검사팀','검사팀장',true),
-    mk('문검사','검사팀','임상병리사',false),
-    mk('양검사','검사팀','임상병리사',false),
-    mk('구검사','검사팀','방사선사',false),
+    mk('행정원장','데스크','행정원장',true,'director'),
+    mk('성형팀장','성형팀','팀장',true,'lead'),
+    mk('성형A','성형팀','',false),
+    mk('성형B','성형팀','',false),
+    mk('성형C','성형팀','',false),
+    mk('성형D','성형팀','',false),
+    mk('피부팀장','피부팀','팀장',true,'lead'),
+    mk('피부A','피부팀','',false),
+    mk('피부B','피부팀','',false),
+    mk('피부C','피부팀','',false),
+    mk('피부D','피부팀','',false),
+    mk('데스크팀장','데스크','팀장',true,'lead'),
+    mk('데스크A','데스크','',false),
+    mk('데스크B','데스크','',false),
+    mk('비만팀장','비만','팀장',true,'lead'),
+    mk('비만A','비만','',false),
+    mk('비만B','비만','',false),
+    mk('비만C','비만','',false),
   ];
   employees.forEach((e,i)=> e.order = i);
   return {
     employees,
     leaves: [],
     settings: {
-      teams: ['진료팀','간호팀','원무팀','검사팀'],
+      teams: ['성형팀','피부팀','데스크','비만'],
       enforceImportant: true,
       importantLimit: 1,        // 하루 중요직책 동시 휴무 허용 인원
       dailyMaxPerTeam: 0,       // 팀별 하루 최대 휴무(0=제한없음)
       adminPin: '',
+      twoStep: true,            // 승인 2단계(팀장→행정원장)
     },
     settingsUpdated: 1,
   };
@@ -377,13 +379,24 @@ function teamLimitConflict(date, empId, excludeLeaveId){
   if(uniq.length >= max) return { team: emp.team, count: uniq.length, max };
   return null;
 }
-function pendingLeaves(){ return state.leaves.filter(l=>!l.deleted && l.status==='pending'); }
+// 진행 중(최종 승인 전) 신청들
+function pendingLeaves(){ return state.leaves.filter(l=>!l.deleted && (l.status==='pending' || l.status==='lead_ok')); }
+// 1차(팀장) 대기 — 특정 팀으로 필터 가능
+function stage1Leaves(team){ return state.leaves.filter(l=>!l.deleted && l.status==='pending' && (!team || (empById(l.empId)||{}).team===team)); }
+// 2차(행정원장) 대기
+function stage2Leaves(){ return state.leaves.filter(l=>!l.deleted && l.status==='lead_ok'); }
+function twoStepOn(){ return state.settings.twoStep !== false; }
 
 // ── 저장 / 로드 ───────────────────────────────────────────
 function loadLocal(){
   try { local = JSON.parse(localStorage.getItem(LS_LOCAL)) || {}; } catch { local = {}; }
   if(local.adminMode===undefined) local.adminMode=false;
+  if(local.adminRole===undefined) local.adminRole='';   // 'director' | 'lead'
+  if(local.adminTeam===undefined) local.adminTeam='';    // 팀장일 때 담당 팀
 }
+function isDirector(){ return local.adminMode && local.adminRole==='director'; }
+function isLead(){ return local.adminMode && local.adminRole==='lead'; }
+function roleLabel(){ return local.adminRole==='director' ? '행정원장' : local.adminRole==='lead' ? ('팀장'+(local.adminTeam?' · '+local.adminTeam:'')) : ''; }
 function saveLocal(){ localStorage.setItem(LS_LOCAL, JSON.stringify(local)); }
 function loadState(){
   try { state = JSON.parse(localStorage.getItem(LS_STATE)); } catch { state=null; }
@@ -483,6 +496,8 @@ function closeSheet(){
   else doCloseSheet();
 }
 function doCloseSheet(){ document.getElementById('sheetBg').classList.remove('show'); }
+// 열린 시트 내용을 히스토리 추가 없이 교체(다단계 시트용)
+function setSheet(html){ document.getElementById('sheet').innerHTML='<div class="sheet-grip"></div>'+html; }
 window.addEventListener('popstate', ()=>{
   // 1) 시트/모달이 열려 있으면 그것부터 닫기
   if(uiStack.length){ const t=uiStack.pop(); if(t.tag==='sheet') doCloseSheet(); return; }
@@ -509,7 +524,12 @@ function render(){
 }
 function updateNav(){
   document.querySelectorAll('#nav button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
-  const n=pendingLeaves().length, badge=document.getElementById('pendBadge');
+  // 배지: 현재 역할이 처리해야 할 건수
+  let n;
+  if(isDirector()) n = stage2Leaves().length + stage1Leaves().length;
+  else if(isLead()) n = stage1Leaves(local.adminTeam).length;
+  else n = pendingLeaves().length;
+  const badge=document.getElementById('pendBadge');
   badge.style.display = n>0?'flex':'none'; badge.textContent=n;
 }
 
@@ -633,7 +653,7 @@ function renderRequest(){
   const my = state.leaves.filter(l=>!l.deleted && l.empId===meId).sort((a,b)=> b.date.localeCompare(a.date) || (b.updated-a.updated));
   let h = `<div class="card">
     <h3>휴무 신청</h3>
-    <div class="desc">본인을 선택하고 날짜·종류를 골라 신청하세요. 관리자가 승인하면 스케쥴에 반영됩니다.</div>
+    <div class="desc">본인을 선택하고 날짜·종류를 골라 신청하세요. <b>팀장 승인 → 행정원장 최종 승인</b>을 거치면 스케쥴에 반영됩니다.</div>
     <label class="fld">신청자 (본인)</label>
     <select class="in" id="reqEmp">${emps.map(e=>`<option value="${e.id}" ${e.id===meId?'selected':''}>${esc(e.name)} · ${esc(e.team)} ${e.important?'★':''}</option>`).join('')}</select>
     <label class="fld">날짜</label>
@@ -650,10 +670,11 @@ function renderRequest(){
   else {
     h += '<div class="card">'+my.map(l=>{
       const st = l.status==='approved'?'st-approved':l.status==='rejected'?'st-rejected':'st-pending';
-      const stl = l.status==='approved'?'승인됨':l.status==='rejected'?'거절됨':'대기중';
+      const stl = l.status==='approved'?'승인 완료' : l.status==='rejected'?'거절됨' : l.status==='lead_ok'?'1차 승인 · 원장 대기' : '팀장 승인 대기';
+      const cancelable = (l.status==='pending' || l.status==='lead_ok');
       return `<div class="lrow"><div class="info"><div class="nm">${fmtK(l.date)} · ${esc(l.type)}</div><div class="sub">${l.note?esc(l.note):'사유 없음'}</div></div>
         <span class="status-chip ${st}">${stl}</span>
-        ${l.status==='pending'?`<button class="btn btn-danger btn-sm" data-cancel="${l.id}">취소</button>`:''}
+        ${cancelable?`<button class="btn btn-danger btn-sm" data-cancel="${l.id}">취소</button>`:''}
       </div>`;
     }).join('')+'</div>';
   }
@@ -675,8 +696,8 @@ function bindRequest(){
     const empId=empSel.value, date=dateI.value, type=typeS.value, note=document.getElementById('reqNote').value.trim();
     if(!empId){ toast('직원을 선택하세요', true); return; }
     if(!date){ toast('날짜를 선택하세요', true); return; }
-    // 중복 신청 방지 (같은 직원+날짜 pending/approved)
-    const dup=state.leaves.find(l=>!l.deleted && l.empId===empId && l.date===date && (l.status==='pending'||l.status==='approved'));
+    // 중복 신청 방지 (같은 직원+날짜 진행중/승인)
+    const dup=state.leaves.find(l=>!l.deleted && l.empId===empId && l.date===date && (l.status==='pending'||l.status==='lead_ok'||l.status==='approved'));
     if(dup){ toast('이미 해당 날짜에 신청/승인된 휴무가 있어요', true); return; }
     local.meId=empId; saveLocal();
     state.leaves.push({ id:uid(), empId, date, type, note, status:'pending', requestedBy:empId, updated:Date.now(), deleted:false });
@@ -690,62 +711,83 @@ function bindRequest(){
   });
 }
 
-/* ── 승인 뷰 (관리자) ── */
+/* ── 승인 뷰 (2단계: 팀장 1차 → 행정원장 최종) ── */
+function leaveRow(l, buttons, stageLabel){
+  const e=empById(l.empId);
+  const c=importantConflict(l.date, l.empId, l.id);
+  const tc=teamLimitConflict(l.date, l.empId, l.id);
+  let note='';
+  if(c) note=`<div class="conflict-note">⚠️ 중요직책 중복: 이 날 <b>${c.others.map(o=>esc(o.name)).join(', ')}</b> 이미 휴무 (허용 ${c.limit}명)</div>`;
+  else if(tc) note=`<div class="conflict-note">⚠️ ${esc(tc.team)} 하루 최대 휴무(${tc.max}명) 초과</div>`;
+  return `<div class="lrow" style="flex-wrap:wrap">
+    <div class="info"><div class="nm">${esc(e?e.name:'?')} ${e&&e.important?'<span class="star">★</span>':''} <span style="color:var(--muted);font-size:11px">${esc(e?e.team:'')} ${esc(e?e.role:'')}</span></div>
+      <div class="sub">${fmtK(l.date)} · ${esc(l.type)}${l.note?' · '+esc(l.note):''}${stageLabel?' · '+stageLabel:''}</div></div>
+    <div class="btn-row" style="width:auto">${buttons}</div>
+    <div style="width:100%">${note}</div>
+  </div>`;
+}
+const _byDate=(a,b)=> a.date.localeCompare(b.date);
+function _divider(t){ return `<div class="divider"><span class="l">${t}</span><div class="line"></div></div>`; }
+function _empty(t,ico){ return `<div class="empty-state"><div class="ico">${ico||'🎉'}</div><div class="t">${t}</div></div>`; }
+
 function renderApprovals(){
   if(!local.adminMode) return adminLock('승인 기능은 관리자 전용입니다');
-  const pend=pendingLeaves().sort((a,b)=> a.date.localeCompare(b.date));
-  const approved=state.leaves.filter(l=>!l.deleted && l.status==='approved' && l.date>=todayStr()).sort((a,b)=>a.date.localeCompare(b.date));
-  let h='';
-  h += `<div class="divider"><span class="l">승인 대기 ${pend.length}건</span><div class="line"></div></div>`;
-  if(!pend.length){ h+=`<div class="empty-state"><div class="ico">🎉</div><div class="t">대기중인 신청이 없어요</div></div>`; }
-  else {
-    h+='<div class="card">'+pend.map(l=>{
-      const e=empById(l.empId);
-      const c=importantConflict(l.date, l.empId, l.id);
-      const tc=teamLimitConflict(l.date, l.empId, l.id);
-      let note='';
-      if(c) note=`<div class="conflict-note">⚠️ 중요직책 중복: 이 날 <b>${c.others.map(o=>esc(o.name)).join(', ')}</b> 이미 휴무 (허용 ${c.limit}명)</div>`;
-      else if(tc) note=`<div class="conflict-note">⚠️ ${esc(tc.team)} 하루 최대 휴무(${tc.max}명) 초과</div>`;
-      return `<div class="lrow" style="flex-wrap:wrap">
-        <div class="info"><div class="nm">${esc(e?e.name:'?')} ${e&&e.important?'<span class="star">★</span>':''} <span style="color:var(--muted);font-size:11px">${esc(e?e.team:'')} ${esc(e?e.role:'')}</span></div>
-          <div class="sub">${fmtK(l.date)} · ${esc(l.type)}${l.note?' · '+esc(l.note):''}</div></div>
-        <div class="btn-row" style="width:auto">
-          <button class="btn btn-primary btn-sm" data-approve="${l.id}">승인</button>
-          <button class="btn btn-danger btn-sm" data-reject="${l.id}">거절</button>
-        </div>
-        <div style="width:100%">${note}</div>
-      </div>`;
-    }).join('')+'</div>';
+  const leadBtns = l=>`<button class="btn btn-primary btn-sm" data-lead="${l.id}">${twoStepOn()?'1차 승인':'승인'}</button><button class="btn btn-danger btn-sm" data-reject="${l.id}">거절</button>`;
+  const finalBtns = l=>`<button class="btn btn-primary btn-sm" data-final="${l.id}">최종 승인</button><button class="btn btn-danger btn-sm" data-reject="${l.id}">거절</button>`;
+  let h = `<div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="font-size:12px;color:var(--muted)">현재 역할</div>
+    <div style="font-size:13px;font-weight:700;color:var(--accent)">${esc(roleLabel()||'관리자')}</div></div>`;
+
+  if(isLead()){
+    const s1=stage1Leaves(local.adminTeam).sort(_byDate);
+    h += _divider(`${esc(local.adminTeam||'우리 팀')} · 1차 승인 대기 ${s1.length}건`);
+    h += s1.length ? '<div class="card">'+s1.map(l=>leaveRow(l, leadBtns(l))).join('')+'</div>' : _empty('대기중인 신청이 없어요');
+    h += `<div class="desc" style="text-align:center;margin-top:10px">1차 승인 후 <b>행정원장 최종 승인</b>을 거쳐 스케쥴에 반영됩니다.</div>`;
+    return h;
   }
-  h += `<div class="divider"><span class="l">승인된 휴무 (예정)</span><div class="line"></div></div>`;
-  if(!approved.length){ h+=`<div class="empty-state"><div class="ico">🗓</div><div class="t">예정된 승인 휴무가 없어요</div></div>`; }
-  else {
-    h+='<div class="card">'+approved.map(l=>{ const e=empById(l.empId);
+
+  // 행정원장(또는 역할 미지정=전체 관리자)
+  const s2=stage2Leaves().sort(_byDate);
+  h += _divider(`최종 승인 대기 (행정원장) ${s2.length}건`);
+  h += s2.length ? '<div class="card">'+s2.map(l=>leaveRow(l, finalBtns(l), '팀장 1차 승인 완료')).join('')+'</div>' : _empty('최종 승인 대기 없음');
+
+  if(twoStepOn()){
+    const s1=stage1Leaves().sort(_byDate);
+    h += _divider(`1차 승인 대기 (팀장) ${s1.length}건`);
+    h += s1.length ? '<div class="card">'+s1.map(l=>leaveRow(l, leadBtns(l))).join('')+'</div>' : _empty('1차 대기 없음','🗒');
+  } else {
+    const s1=stage1Leaves().sort(_byDate);
+    h += _divider(`승인 대기 ${s1.length}건`);
+    h += s1.length ? '<div class="card">'+s1.map(l=>leaveRow(l, leadBtns(l))).join('')+'</div>' : _empty('대기중인 신청이 없어요');
+  }
+
+  const approved=state.leaves.filter(l=>!l.deleted && l.status==='approved' && l.date>=todayStr()).sort(_byDate);
+  h += _divider('승인 완료 (예정)');
+  h += approved.length ? '<div class="card">'+approved.map(l=>{ const e=empById(l.empId);
       return `<div class="lrow"><div class="info"><div class="nm">${esc(e?e.name:'?')} · ${esc(l.type)}</div><div class="sub">${fmtK(l.date)} · ${esc(e?e.team:'')}</div></div>
         <button class="btn btn-ghost btn-sm" data-revoke="${l.id}">승인취소</button></div>`;
-    }).join('')+'</div>';
-  }
+    }).join('')+'</div>' : _empty('예정된 승인 휴무가 없어요','🗓');
   return h;
 }
 function bindApprovals(){
   if(!local.adminMode){ bindAdminLock(); return; }
-  document.querySelectorAll('[data-approve]').forEach(b=> b.onclick=()=> approveLeave(b.dataset.approve));
-  document.querySelectorAll('[data-reject]').forEach(b=> b.onclick=()=>{ const l=findLeave(b.dataset.reject); if(l){ l.status='rejected'; l.updated=Date.now(); saveState(); toast('거절했어요'); render(); } });
-  document.querySelectorAll('[data-revoke]').forEach(b=> b.onclick=()=>{ const l=findLeave(b.dataset.revoke); if(l){ l.status='pending'; l.updated=Date.now(); saveState(); toast('승인을 취소했어요 (대기중으로)'); render(); } });
+  document.querySelectorAll('[data-lead]').forEach(b=> b.onclick=()=> leadApprove(b.dataset.lead));
+  document.querySelectorAll('[data-final]').forEach(b=> b.onclick=()=> finalApprove(b.dataset.final));
+  document.querySelectorAll('[data-reject]').forEach(b=> b.onclick=()=> rejectLeave(b.dataset.reject));
+  document.querySelectorAll('[data-revoke]').forEach(b=> b.onclick=()=> revokeLeave(b.dataset.revoke));
 }
 function findLeave(id){ return state.leaves.find(x=>x.id===id); }
-function approveLeave(id){
-  const l=findLeave(id); if(!l) return;
+// 최종 반영 전 충돌(중요직책 중복/팀 인원) 확인 후 진행
+function withConflictCheck(l, proceed){
   const c=importantConflict(l.date, l.empId, l.id);
   const tc=teamLimitConflict(l.date, l.empId, l.id);
-  const doApprove=()=>{ l.status='approved'; l.updated=Date.now(); saveState(); toast('✅ 승인 완료 — 스케쥴에 반영'); render(); };
   if(c){
     openSheet(`<div class="sheet-title">⚠️ 중요직책 중복 휴무</div>
       <div class="sheet-sub">이 날(${fmtK(l.date)})에 중요직책 <b>${c.others.map(o=>esc(o.name)).join(', ')}</b> 이(가) 이미 휴무입니다. (동시 허용 ${c.limit}명)</div>
       <div class="conflict-note">규칙상 승인이 제한됩니다. 그래도 승인하시겠어요?</div>
       <div class="btn-row" style="margin-top:14px"><button class="btn btn-ghost" id="ovCancel">취소</button><button class="btn btn-danger" id="ovForce">규칙 무시하고 승인</button></div>`);
     document.getElementById('ovCancel').onclick=closeSheet;
-    document.getElementById('ovForce').onclick=()=>{ closeSheet(); doApprove(); };
+    document.getElementById('ovForce').onclick=()=>{ closeSheet(); proceed(); };
     return;
   }
   if(tc){
@@ -753,11 +795,26 @@ function approveLeave(id){
       <div class="sheet-sub">${esc(tc.team)}은(는) ${fmtK(l.date)}에 이미 최대 휴무 인원(${tc.max}명)입니다.</div>
       <div class="btn-row" style="margin-top:14px"><button class="btn btn-ghost" id="ovCancel">취소</button><button class="btn btn-danger" id="ovForce">그래도 승인</button></div>`);
     document.getElementById('ovCancel').onclick=closeSheet;
-    document.getElementById('ovForce').onclick=()=>{ closeSheet(); doApprove(); };
+    document.getElementById('ovForce').onclick=()=>{ closeSheet(); proceed(); };
     return;
   }
-  doApprove();
+  proceed();
 }
+function leadApprove(id){
+  const l=findLeave(id); if(!l || l.status!=='pending') return;
+  if(twoStepOn()){
+    l.status='lead_ok'; l.updated=Date.now(); saveState();
+    toast('✅ 1차(팀장) 승인 — 행정원장 최종 승인 대기'); render();
+  } else {
+    withConflictCheck(l, ()=>{ l.status='approved'; l.updated=Date.now(); saveState(); toast('✅ 승인 완료 — 스케쥴 반영'); render(); });
+  }
+}
+function finalApprove(id){
+  const l=findLeave(id); if(!l || l.status!=='lead_ok') return;
+  withConflictCheck(l, ()=>{ l.status='approved'; l.updated=Date.now(); saveState(); toast('✅ 최종 승인 — 스케쥴에 반영'); render(); });
+}
+function rejectLeave(id){ const l=findLeave(id); if(!l) return; l.status='rejected'; l.updated=Date.now(); saveState(); toast('거절했어요'); render(); }
+function revokeLeave(id){ const l=findLeave(id); if(!l) return; l.status = twoStepOn()?'lead_ok':'pending'; l.updated=Date.now(); saveState(); toast('최종 승인을 취소했어요'); render(); }
 
 /* ── 관리자 잠금 화면 ── */
 function adminLock(msg){
@@ -773,20 +830,27 @@ function renderSettings(){
   let h='';
   // 관리자 모드
   h += `<div class="card">
-    <div class="toggle-row"><div><div class="tl">관리자 모드</div><div class="ts">${local.adminMode?'승인·명단·규칙 편집 가능':'켜면 승인/설정 편집 가능'}</div></div>
+    <div class="toggle-row"><div><div class="tl">관리자 모드</div><div class="ts">${local.adminMode?('로그인됨 · '+esc(roleLabel()||'관리자')):'켜면 승인/설정 사용 가능'}</div></div>
       <label class="switch"><input type="checkbox" id="admToggle" ${local.adminMode?'checked':''}><span class="track"></span><span class="thumb"></span></label></div>
+    ${local.adminMode?`<button class="btn btn-ghost btn-sm" id="roleSwitch" style="margin-top:8px">역할 변경</button>`:''}
   </div>`;
 
-  if(local.adminMode){
+  if(local.adminMode && isLead()){
+    h += `<div class="card"><h3>팀장 권한</h3><div class="desc">승인 탭에서 <b>${esc(local.adminTeam||'담당 팀')}</b>의 <b>1차 승인</b>을 처리할 수 있습니다. 명단·규칙 편집과 최종 승인은 행정원장 권한입니다.</div></div>`;
+  }
+
+  if(isDirector()){
     // 직원 명단
     const emps=activeEmployees();
+    const rankLabel = r=> r==='director'?'행정원장':r==='lead'?'팀장':'';
     h += `<div class="card"><div style="display:flex;align-items:center;justify-content:space-between"><h3>직원 명단 (${emps.length}명)</h3><button class="btn btn-primary btn-sm" id="addEmp">＋ 추가</button></div>
-      <div class="desc" style="margin-top:8px">★ = 중요직책 (동시 휴무 제한 대상)</div>`;
+      <div class="desc" style="margin-top:8px">이름·팀·직급을 편집할 수 있어요. ★ = 중요직책(동시 휴무 제한)</div>`;
     teamList().forEach(tm=>{
       const ms=emps.filter(e=>e.team===tm); if(!ms.length) return;
       h+=`<div style="margin-top:6px"><div class="team-name" style="font-size:12px;margin:8px 0 2px">${esc(tm)}</div>`;
       ms.forEach(e=>{
-        h+=`<div class="lrow"><div class="info"><div class="nm">${esc(e.name)} ${e.important?'<span class="star">★</span>':''}</div><div class="sub">${esc(e.role||'')}</div></div>
+        const rl=rankLabel(e.rank);
+        h+=`<div class="lrow"><div class="info"><div class="nm">${esc(e.name)} ${e.important?'<span class="star">★</span>':''} ${rl?`<span class="tag imp" style="font-size:10px">${rl}</span>`:''}</div><div class="sub">${esc(e.role||'')}</div></div>
           <button class="btn btn-ghost btn-sm" data-editemp="${e.id}">편집</button></div>`;
       });
       h+='</div>';
@@ -799,6 +863,8 @@ function renderSettings(){
 
     // 휴무 규칙
     h += `<div class="card"><h3>휴무 규칙</h3>
+      <div class="toggle-row"><div><div class="tl">승인 2단계 (팀장 → 행정원장)</div><div class="ts">끄면 1단계 승인만으로 반영</div></div>
+        <label class="switch"><input type="checkbox" id="ruleTwoStep" ${twoStepOn()?'checked':''}><span class="track"></span><span class="thumb"></span></label></div>
       <div class="toggle-row"><div><div class="tl">중요직책 동시 휴무 제한</div><div class="ts">중요직책(★) 인원이 같은 날 겹치지 않도록 승인 차단</div></div>
         <label class="switch"><input type="checkbox" id="ruleImp" ${s.enforceImportant?'checked':''}><span class="track"></span><span class="thumb"></span></label></div>
       <label class="fld">중요직책 하루 동시 휴무 허용 인원</label>
@@ -827,7 +893,7 @@ function renderSettings(){
     <div class="btn-row"><button class="btn btn-ghost" id="expBtn">내보내기</button><button class="btn btn-ghost" id="impBtn">불러오기</button></div>
     <input type="file" id="impFile" accept="application/json" style="display:none"/></div>`;
 
-  if(local.adminMode){
+  if(isDirector()){
     h += `<div class="card"><h3 style="color:#ff8a99">데이터 초기화</h3><div class="desc">모든 직원·휴무 데이터를 삭제하고 기본 예시로 되돌립니다.</div>
       <button class="btn btn-danger" id="resetBtn">전체 초기화</button></div>`;
   }
@@ -846,10 +912,11 @@ function bindSettings(){
   const at=document.getElementById('admToggle');
   if(at) at.onchange=()=>{
     if(at.checked){ at.checked=false; adminLoginSheet(); }
-    else { local.adminMode=false; saveLocal(); render(); }
+    else { local.adminMode=false; local.adminRole=''; local.adminTeam=''; saveLocal(); render(); }
   };
+  const rsw=document.getElementById('roleSwitch'); if(rsw) rsw.onclick=()=> roleSwitchSheet();
 
-  if(local.adminMode){
+  if(isDirector()){
     const ae=document.getElementById('addEmp'); if(ae) ae.onclick=()=> empSheet(null);
     document.querySelectorAll('[data-editemp]').forEach(b=> b.onclick=()=> empSheet(b.dataset.editemp));
     const at2=document.getElementById('addTeam'); if(at2) at2.onclick=()=> teamSheet();
@@ -859,6 +926,7 @@ function bindSettings(){
       state.settings.teams=(state.settings.teams||[]).filter(x=>x!==t); touchSettings(); saveState(); render();
     });
     const sr=document.getElementById('saveRules'); if(sr) sr.onclick=()=>{
+      state.settings.twoStep=document.getElementById('ruleTwoStep').checked;
       state.settings.enforceImportant=document.getElementById('ruleImp').checked;
       state.settings.importantLimit=Math.max(1, parseInt(document.getElementById('ruleImpLimit').value)||1);
       state.settings.dailyMaxPerTeam=Math.max(0, parseInt(document.getElementById('ruleTeamMax').value)||0);
@@ -886,27 +954,56 @@ function bindSettings(){
   const imf=document.getElementById('impFile'); if(imf) imf.onchange=e=> importJSON(e.target.files[0]);
 }
 
-/* ── 관리자 로그인 ── */
+/* ── 관리자 로그인 (PIN 표시 + 역할 선택) ── */
 function adminLoginSheet(){
   const first = !state.settings.adminPin;
   openSheet(`<div class="sheet-title">${first?'관리자 PIN 설정':'관리자 로그인'}</div>
-    <div class="sheet-sub">${first?'처음이라면 사용할 PIN(4자리 이상)을 정하세요. 이후 승인·명단 편집에 사용됩니다.':'관리자 PIN을 입력하세요.'}</div>
-    <input class="in" id="pinIn" type="password" inputmode="numeric" placeholder="PIN" style="margin-top:6px"/>
+    <div class="sheet-sub">${first?'처음이라면 사용할 PIN(4자리 이상)을 정하세요. 승인·설정에 사용됩니다.':'관리자 PIN을 입력하세요.'}</div>
+    <div style="position:relative;margin-top:6px">
+      <input class="in" id="pinIn" type="text" inputmode="numeric" autocomplete="off" placeholder="PIN" style="padding-right:56px"/>
+      <button id="pinToggle" type="button" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;padding:8px">숨기기</button>
+    </div>
     <div id="pinErr"></div>
-    <button class="btn btn-primary" id="pinOk" style="margin-top:14px">${first?'설정하고 로그인':'로그인'}</button>`);
+    <button class="btn btn-primary" id="pinOk" style="margin-top:14px">${first?'설정하고 다음':'다음'}</button>`);
   const inp=document.getElementById('pinIn'); setTimeout(()=>inp.focus(),100);
-  document.getElementById('pinOk').onclick=()=>{
+  const tg=document.getElementById('pinToggle');
+  tg.onclick=()=>{ if(inp.type==='text'){ inp.type='password'; tg.textContent='보기'; } else { inp.type='text'; tg.textContent='숨기기'; } };
+  const submit=()=>{
     const v=inp.value.trim();
     if(first){
       if(v.length<4){ document.getElementById('pinErr').innerHTML='<div class="conflict-note">4자리 이상으로 정하세요.</div>'; return; }
-      state.settings.adminPin=v; touchSettings(); saveState();
-      local.adminMode=true; saveLocal(); closeSheet(); toast('관리자 PIN 설정 완료'); render();
+      state.settings.adminPin=v; touchSettings(); saveState(); rolePickerStep();
     } else {
-      if(v===state.settings.adminPin){ local.adminMode=true; saveLocal(); closeSheet(); toast('관리자 로그인'); render(); }
-      else { document.getElementById('pinErr').innerHTML='<div class="conflict-note">PIN이 일치하지 않아요.</div>'; }
+      if(v===state.settings.adminPin){ rolePickerStep(); }
+      else document.getElementById('pinErr').innerHTML='<div class="conflict-note">PIN이 일치하지 않아요.</div>';
     }
   };
-  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('pinOk').click(); });
+  document.getElementById('pinOk').onclick=submit;
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
+}
+// 역할 선택(같은 시트 내 다단계)
+function roleSwitchSheet(){ openSheet('<div></div>'); rolePickerStep(); }
+function rolePickerStep(){
+  const teams=teamList();
+  setSheet(`<div class="sheet-title">역할 선택</div>
+    <div class="sheet-sub">이 기기에서 어떤 권한으로 사용할까요?</div>
+    <button class="btn btn-primary" id="roleDir">행정원장 · 최종 승인 + 전체 설정</button>
+    <div style="height:8px"></div>
+    <button class="btn btn-ghost" id="roleLead">팀장 · 우리 팀 1차 승인</button>
+    <div id="leadWrap" style="display:none;margin-top:14px">
+      <label class="fld">담당 팀</label>
+      <select class="in" id="leadTeam">${teams.map(t=>`<option ${local.adminTeam===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+      <button class="btn btn-primary" id="leadOk" style="margin-top:12px">팀장으로 로그인</button>
+    </div>`);
+  document.getElementById('roleDir').onclick=()=>{
+    local.adminMode=true; local.adminRole='director'; local.adminTeam=''; saveLocal();
+    closeSheet(); toast('행정원장으로 로그인'); render();
+  };
+  document.getElementById('roleLead').onclick=()=>{ document.getElementById('leadWrap').style.display='block'; };
+  document.getElementById('leadOk').onclick=()=>{
+    local.adminMode=true; local.adminRole='lead'; local.adminTeam=document.getElementById('leadTeam').value; saveLocal();
+    closeSheet(); toast('팀장으로 로그인 · '+local.adminTeam); render();
+  };
 }
 
 /* ── 직원 추가/편집 시트 ── */
@@ -916,7 +1013,13 @@ function empSheet(id){
   openSheet(`<div class="sheet-title">${e?'직원 편집':'직원 추가'}</div>
     <label class="fld">이름</label><input class="in" id="eName" value="${e?esc(e.name):''}" placeholder="홍길동"/>
     <label class="fld">팀</label><select class="in" id="eTeam">${teams.map(t=>`<option ${e&&e.team===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
-    <label class="fld">직책</label><input class="in" id="eRole" value="${e?esc(e.role||''):''}" placeholder="예: 간호사, 원무"/>
+    <label class="fld">직책 (호칭·자유 입력)</label><input class="in" id="eRole" value="${e?esc(e.role||''):''}" placeholder="예: 간호사, 코디, 데스크"/>
+    <label class="fld">승인 권한(직급)</label>
+    <select class="in" id="eRank">
+      <option value="" ${!e||!e.rank?'selected':''}>일반</option>
+      <option value="lead" ${e&&e.rank==='lead'?'selected':''}>팀장 · 1차 승인</option>
+      <option value="director" ${e&&e.rank==='director'?'selected':''}>행정원장 · 최종 승인</option>
+    </select>
     <div class="toggle-row"><div><div class="tl">중요직책 (★)</div><div class="ts">동시 휴무 제한 대상</div></div>
       <label class="switch"><input type="checkbox" id="eImp" ${e&&e.important?'checked':''}><span class="track"></span><span class="thumb"></span></label></div>
     <button class="btn btn-primary" id="eSave" style="margin-top:10px">저장</button>
@@ -924,9 +1027,9 @@ function empSheet(id){
   document.getElementById('eSave').onclick=()=>{
     const name=document.getElementById('eName').value.trim();
     if(!name){ toast('이름을 입력하세요', true); return; }
-    const team=document.getElementById('eTeam').value, role=document.getElementById('eRole').value.trim(), imp=document.getElementById('eImp').checked;
-    if(e){ e.name=name; e.team=team; e.role=role; e.important=imp; e.updated=Date.now(); }
-    else { state.employees.push({ id:uid(), name, team, role, important:imp, order:state.employees.length, updated:Date.now(), deleted:false }); }
+    const team=document.getElementById('eTeam').value, role=document.getElementById('eRole').value.trim(), imp=document.getElementById('eImp').checked, rank=document.getElementById('eRank').value;
+    if(e){ e.name=name; e.team=team; e.role=role; e.important=imp; e.rank=rank; e.updated=Date.now(); }
+    else { state.employees.push({ id:uid(), name, team, role, important:imp, rank, order:state.employees.length, updated:Date.now(), deleted:false }); }
     saveState(); closeSheet(); toast('저장했어요'); render();
   };
   if(e){ document.getElementById('eDel').onclick=()=>{ e.deleted=true; e.updated=Date.now(); saveState(); closeSheet(); toast('삭제했어요'); render(); }; }
